@@ -125,7 +125,7 @@ tps.to(device)
 target_func = lambda obj, cls: obj
 prob_extractor = load_data.MaxProbExtractor(0, 80, target_func, kwargs['name']).to(device)
 
-result_root_dir = './results'
+result_root_dir = './training_results'
 # 结果文件路径
 results_dir = os.path.join(result_root_dir, 'result_' + pargs.suffix)
 
@@ -232,7 +232,8 @@ def train_patch():
                 writer.add_scalar('misc/learning_rate', optimizer.param_groups[0]["lr"], iteration)
 
 
-            if epoch % max(min((args.n_epochs // 10), 100), 1) == 0:
+            # if epoch % max(min((args.n_epochs // 10), 100), 1) == 0:
+            if i_batch % 20 == 0:
                 writer.add_image('patch', adv_patch.squeeze(0), iteration)
                 rpath = os.path.join(results_dir, 'patch%d' % epoch)
                 np.save(rpath, adv_patch.detach().cpu().numpy())
@@ -434,10 +435,9 @@ def train_EGA():
 def train_z(gen=None):
     if gen is None:
         gen = GAN_dis(DIM=128, z_dim=128, img_shape=(324,) * 2)
-        suffix_load = pargs.gen_suffix
-        print("suffix_load", suffix_load)
-        print("debug path", os.path.join(result_dir, suffix_load + '.pkl'))
-        result_dir = './results/result_' + suffix_load
+        suffix_load = pargs.gen_suffix # 提供gen训练的模型地址，用于恢复gen
+        print(f"debug: suffix_load is {suffix_load}")
+        result_dir = os.path.join(result_root_dir, 'result_' + suffix_load)
         d = torch.load(os.path.join(result_dir, suffix_load + '.pkl'), map_location='cpu', weights_only=False)
         gen.load_state_dict(d)
     
@@ -526,7 +526,8 @@ def train_z(gen=None):
                 writer.add_scalar('misc/epoch', epoch, iteration)
                 writer.add_scalar('misc/learning_rate', optimizer.param_groups[0]["lr"], iteration)
 
-            if epoch % max(min((args.n_epochs // 10), 100), 1) == 0:
+            # if epoch % max(min((args.n_epochs // 10), 100), 1) == 0:
+            if epoch % 20 == 0:
                 writer.add_image('patch', adv_patch.squeeze(0), iteration)
                 rpath = os.path.join(results_dir, 'patch%d' % epoch)
                 np.save(rpath, adv_patch.detach().cpu().numpy())
