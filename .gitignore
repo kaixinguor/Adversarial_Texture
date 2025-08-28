@@ -1,0 +1,8 @@
+__pycache__
+
+
+
+data/INRIAPerson/
+data/models/yolov2.weights
+data/test_lab_yolov2/
+data/test_padded/
