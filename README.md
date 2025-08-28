@@ -73,6 +73,10 @@ We provide the command to train for each method.
 ```
 $METHOD_NAME can be replaced to "RCA", "TCA", EGA" or "TCEGA" when one use different methods. The patterns and checkpoints will be saved in directory "results/".
 
+Training log could be visualized by
+```
+ tensorboard --logdir ./results/runs/2025--28T13-36-23_yolov2_TCEGA_z/ --poport 6006
+```
 #### 5. Patterns
 We provide the TCEGA patterns of yolov2, yolov3, FasterRCNN, and MaskRCNN for physical print in ./print_patterns/. Each file has a size of 2370 * 1185, where the recurrent unit has a size of 324 * 324.
 
