@@ -19,12 +19,15 @@ All the codes are tested in the following environment:
 
 #### 2. Preparation
 You need to download the yolov2 weights by
+<del>https://pjreddie.com/media/files/yolov2.weights（此链接已失效）</del> 
 ```
-wget -P ./data/models/ https://pjreddie.com/media/files/yolov2.weights
+wget -P ./data/models/  https://data.pjreddie.com/files/yolov2.weights
 ```
+ 
+
 and prepare the Inria Dataset
 ```
-curl ftp://ftp.inrialpes.fr/pub/lear/douze/data/INRIAPerson.tar -o inria.tar
+curl -C - ftp://ftp.inrialpes.fr/pub/lear/douze/data/INRIAPerson.tar -o inria.tar
 tar xf inria.tar
 mv INRIAPerson ./data
 ```
