@@ -12,6 +12,13 @@ import sys
 import pickle
 import json
 
+# 添加PyTorch 2.6兼容性支持
+try:
+    from easydict import EasyDict
+    torch.serialization.add_safe_globals([EasyDict])
+except ImportError:
+    pass
+
 from yolo2 import load_data
 from yolo2 import utils
 from utils import *
@@ -40,7 +47,7 @@ def load_checkpoint(checkpoint_dir,filename):
     filepath = os.path.join(checkpoint_dir, filename)
     if os.path.exists(filepath):
         print(f"Loading checkpoint: {filepath}")
-        return torch.load(filepath, map_location='cpu')
+        return torch.load(filepath, map_location='cpu', weights_only=False)
     return None
 
 def load_latest_checkpoint(checkpoint_dir, prefix):
@@ -65,7 +72,7 @@ def load_latest_checkpoint(checkpoint_dir, prefix):
     latest_checkpoint = max(checkpoint_files, key=extract_epoch)
     print(f"Found latest checkpoint: {latest_checkpoint}")
     
-    return torch.load(latest_checkpoint, map_location='cpu')
+    return torch.load(latest_checkpoint, map_location='cpu', weights_only=False)
 
 
 parser = argparse.ArgumentParser(description='PyTorch Training')
@@ -370,7 +377,8 @@ def train_EGA():
                 writer.add_scalar('misc/epoch', epoch, iteration)
                 writer.add_scalar('misc/learning_rate', optimizerG.param_groups[0]["lr"], iteration)
 
-            if epoch % max(min((args.n_epochs // 10), 100), 1) == 0:
+            # if epoch % max(min((args.n_epochs // 10), 100), 1) == 0:
+            if epoch % 20 == 0:
                 writer.add_image('patch', adv_patch[0], iteration)
                 rpath = os.path.join(results_dir, 'patch%d' % epoch)
                 np.save(rpath, adv_patch.detach().cpu().numpy())
@@ -427,8 +435,10 @@ def train_z(gen=None):
     if gen is None:
         gen = GAN_dis(DIM=128, z_dim=128, img_shape=(324,) * 2)
         suffix_load = pargs.gen_suffix
+        print("suffix_load", suffix_load)
+        print("debug path", os.path.join(result_dir, suffix_load + '.pkl'))
         result_dir = './results/result_' + suffix_load
-        d = torch.load(os.path.join(result_dir, suffix_load + '.pkl'), map_location='cpu')
+        d = torch.load(os.path.join(result_dir, suffix_load + '.pkl'), map_location='cpu', weights_only=False)
         gen.load_state_dict(d)
     
     # 尝试加载z训练的最新检查点
