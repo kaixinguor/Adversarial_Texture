@@ -207,6 +207,190 @@ class TCEGA:
         # 实现patch-based攻击的具体逻辑
         pass
 
+    def single_image_inference(self, image, conf_thresh=0.5, nms_thresh=0.4, iou_thresh=0.5):
+        """
+        单图推理模式：对单张图片进行预处理、贴patch、后处理等完整流程
+        
+        Args:
+            image: PIL Image 或 numpy array，输入图片
+            conf_thresh: 置信度阈值
+            nms_thresh: NMS阈值
+            iou_thresh: IoU阈值
+            
+        Returns:
+            tuple: (adversarial_image, detection_results)
+                - adversarial_image: PIL Image，贴了patch的图片
+                - detection_results: dict，包含检测结果的字典
+        """
+        # 确保输入是PIL Image
+        if isinstance(image, np.ndarray):
+            image = Image.fromarray(image)
+        elif not isinstance(image, Image.Image):
+            raise ValueError("Input must be PIL Image or numpy array")
+        
+        # 1. 预处理：填充和缩放
+        processed_image, processed_label = self._preprocess_single_image(image)
+        
+        # 2. 生成对抗patch
+        adv_patch = self._generate_adv_patch_for_single_image()
+        
+        # 3. 应用patch
+        adversarial_image_tensor = self._apply_patch_to_single_image(processed_image, adv_patch, processed_label)
+        
+        # 4. 后处理：检测
+        detection_results = self._postprocess_single_image(adversarial_image_tensor, conf_thresh, nms_thresh, iou_thresh)
+        
+        # 5. 转换回PIL Image
+        adversarial_image = unloader(adversarial_image_tensor[0].detach().cpu())
+        
+        return adversarial_image, detection_results
+    
+    def _preprocess_single_image(self, image):
+        """
+        对单张图片进行预处理：填充和缩放
+        """
+        # 使用与训练时相同的预处理逻辑
+        if hasattr(self, 'args') and hasattr(self.args, 'img_size'):
+            img_size = self.args.img_size
+        else:
+            img_size = 416  # 默认值
+            
+        # 创建虚拟标签（用于patch变换）
+        # 假设图片中心有一个目标，大小为图片的20%
+        h, w = image.size[1], image.size[0]
+        center_x, center_y = 0.5, 0.5
+        target_w, target_h = 0.2, 0.4  # 相对尺寸
+        
+        # 创建标签格式：[class_id, center_x, center_y, width, height]
+        # class_id=0 表示person类别
+        label = torch.tensor([[0, center_x, center_y, target_w, target_h]], dtype=torch.float32)
+        
+        # 填充和缩放图片
+        padded_image = self._pad_and_scale_image(image, img_size)
+        
+        return padded_image, label
+    
+    def _pad_and_scale_image(self, image, target_size):
+        """
+        对图片进行填充和缩放，使其达到目标尺寸
+        """
+        # 计算填充
+        w, h = image.size
+        target_w, target_h = target_size, target_size
+        
+        # 计算缩放比例
+        scale = min(target_w / w, target_h / h)
+        new_w, new_h = int(w * scale), int(h * scale)
+        
+        # 缩放图片
+        resized_image = image.resize((new_w, new_h), Image.LANCZOS)
+        
+        # 创建目标尺寸的图片并居中放置
+        target_image = Image.new('RGB', (target_w, target_h), (128, 128, 128))
+        
+        # 计算偏移量使图片居中
+        offset_x = (target_w - new_w) // 2
+        offset_y = (target_h - new_h) // 2
+        
+        target_image.paste(resized_image, (offset_x, offset_y))
+        
+        return target_image
+    
+    def _generate_adv_patch_for_single_image(self):
+        """
+        为单张图片生成对抗patch
+        """
+        if self.test_type == 'gan':
+            z = torch.randn(1, 128, *self.args.z_size, device=self.device)
+            cloth = self.test_gan.generate(z)
+            adv_patch, x, y = random_crop(cloth, self.args.crop_size, 
+                                        pos=self.args.pos, crop_type=self.args.crop_type)
+        elif self.test_type == 'z':
+            z_crop, _, _ = random_crop(self.test_z, self.args.z_crop_size, 
+                                    pos=self.args.z_pos, crop_type=self.args.z_crop_type)
+            cloth = self.test_gan.generate(z_crop)
+            adv_patch, x, y = random_crop(cloth, self.args.crop_size, 
+                                        pos=self.args.pos, crop_type=self.args.crop_type)
+        elif self.test_type == 'patch':
+            adv_patch, x, y = random_crop(self.test_cloth, self.args.crop_size, 
+                                        pos=self.args.pos, crop_type=self.args.crop_type)
+        else:
+            raise ValueError(f"Unsupported test type: {self.test_type}")
+        
+        return adv_patch
+    
+    def _apply_patch_to_single_image(self, image, adv_patch, label):
+        """
+        将对抗patch应用到单张图片上
+        """
+        # 转换为tensor
+        if isinstance(image, Image.Image):
+            image_tensor = self.transform(image).unsqueeze(0).to(self.device)
+        else:
+            image_tensor = image.to(self.device)
+        
+        # 扩展label维度以匹配batch处理
+        label_batch = label.unsqueeze(0).to(self.device)
+        
+        # 使用patch transformer处理patch
+        adv_batch_t = self.patch_transformer(adv_patch, label_batch, self.args.img_size, 
+                                           do_rotate=True, rand_loc=False,
+                                           pooling=self.args.pooling, 
+                                           old_fasion=self.kwargs.get('old_fasion', True))
+        
+        # 应用patch
+        adversarial_image = self.patch_applier(image_tensor, adv_batch_t)
+        
+        return adversarial_image
+    
+    def _postprocess_single_image(self, image_tensor, conf_thresh, nms_thresh, iou_thresh):
+        """
+        对单张图片进行后处理：目标检测
+        """
+        # 确保模型处于评估模式
+        self.model.eval()
+        
+        with torch.no_grad():
+            # 前向传播
+            output = self.model(image_tensor)
+            
+            # 获取检测框
+            all_boxes = utils.get_region_boxes_general(output, self.model, 
+                                                    conf_thresh, 
+                                                    self.kwargs.get('name', 'yolov2'))
+            
+            # 处理检测结果
+            detection_results = []
+            for i in range(len(all_boxes)):
+                boxes = all_boxes[i]
+                # 应用NMS
+                boxes = utils.nms(boxes, nms_thresh)
+                
+                # 解析检测结果
+                for box in boxes:
+                    if box[6].item() == 0:  # person类别
+                        detection_result = {
+                            'class_id': int(box[6].item()),
+                            'class_name': 'person',
+                            'confidence': float(box[4].item()),
+                            'bbox': {
+                                'x1': float(box[0].item()),
+                                'y1': float(box[1].item()),
+                                'x2': float(box[2].item()),
+                                'y2': float(box[3].item())
+                            }
+                        }
+                        detection_results.append(detection_result)
+            
+            # 按置信度排序
+            detection_results.sort(key=lambda x: x['confidence'], reverse=True)
+            
+            return {
+                'detections': detection_results,
+                'num_detections': len(detection_results),
+                'model_output': output[0].detach().cpu().numpy() if output[0] is not None else None
+            }
+
     def tcega_attack(self, images, labels=[]):
         """
         TCEGA对抗攻击实现

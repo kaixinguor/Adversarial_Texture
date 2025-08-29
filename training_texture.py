@@ -83,6 +83,7 @@ parser.add_argument('--gen_suffix', default=None, help='generator suffix name')
 parser.add_argument('--epoch', type=int, default=None, help='')
 parser.add_argument('--z_epoch', type=int, default=None, help='')
 parser.add_argument('--device', default='cuda:0', help='')
+parser.add_argument('--save_freq', type=int, default=50, help='')
 pargs = parser.parse_args()
 
 
@@ -127,20 +128,20 @@ prob_extractor = load_data.MaxProbExtractor(0, 80, target_func, kwargs['name']).
 
 result_root_dir = './training_results'
 # 结果文件路径
-results_dir = os.path.join(result_root_dir, 'result_' + pargs.suffix)
+results_dir = os.path.join(result_root_dir, pargs.suffix + '_result')
 
 print(results_dir)
 if not os.path.exists(results_dir):
     os.makedirs(results_dir)
 
 # 检查点文件路径
-checkpoint_dir = os.path.join(result_root_dir, 'checkpoints')
+checkpoint_dir = os.path.join(result_root_dir, pargs.suffix + '_checkpoints')
 if not os.path.exists(checkpoint_dir):
     os.makedirs(checkpoint_dir)
 
 # 日志文件路径
 TIMESTAMP = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
-writer_logdir = os.path.join(result_root_dir, 'runs', TIMESTAMP + '_' + pargs.suffix)
+writer_logdir = os.path.join(result_root_dir, pargs.suffix + '_runs', TIMESTAMP + '_' + pargs.suffix)
 
 loader = train_loader
 epoch_length = len(loader)
@@ -222,7 +223,7 @@ def train_patch():
             adv_patch.data.clamp_(0, 1)  # keep patch in image range
 
             bt1 = time.time()
-            if i_batch % 20 == 0:
+            if i_batch % pargs.save_freq == 0:
                 iteration = epoch_length * epoch + i_batch
 
                 writer.add_scalar('loss/total_loss', loss.detach().cpu().numpy(), iteration)
@@ -233,7 +234,7 @@ def train_patch():
 
 
             # if epoch % max(min((args.n_epochs // 10), 100), 1) == 0:
-            if i_batch % 20 == 0:
+            if i_batch % pargs.save_freq == 0:
                 writer.add_image('patch', adv_patch.squeeze(0), iteration)
                 rpath = os.path.join(results_dir, 'patch%d' % epoch)
                 np.save(rpath, adv_patch.detach().cpu().numpy())
@@ -267,8 +268,8 @@ def train_patch():
         et0 = time.time()
         writer.flush()
         
-        # 每20个epoch保存一次检查点
-        if epoch % 20 == 0:
+        # 每pargs.save_freq个epoch保存一次检查点
+        if epoch % pargs.save_freq == 0:
             checkpoint_state = {
                 'epoch': epoch,
                 'adv_patch': adv_patch.detach().cpu(),
@@ -366,7 +367,7 @@ def train_EGA():
             optimizerD.zero_grad()
 
             bt1 = time.time()
-            if i_batch % 20 == 0:
+            if i_batch % pargs.save_freq == 0:
                 iteration = epoch_length * epoch + i_batch
 
                 writer.add_scalar('loss/total_loss', loss.item(), iteration)
@@ -379,7 +380,7 @@ def train_EGA():
                 writer.add_scalar('misc/learning_rate', optimizerG.param_groups[0]["lr"], iteration)
 
             # if epoch % max(min((args.n_epochs // 10), 100), 1) == 0:
-            if epoch % 20 == 0:
+            if epoch % pargs.save_freq == 0:
                 writer.add_image('patch', adv_patch[0], iteration)
                 rpath = os.path.join(results_dir, 'patch%d' % epoch)
                 np.save(rpath, adv_patch.detach().cpu().numpy())
@@ -413,8 +414,8 @@ def train_EGA():
         et0 = time.time()
         writer.flush()
         
-        # 每20个epoch保存一次检查点
-        if epoch % 20 == 0:
+        # 每pargs.save_freq个epoch保存一次检查点
+        if epoch % pargs.save_freq == 0:
             checkpoint_state = {
                 'epoch': epoch,
                 'gen_state': gen.state_dict(),
@@ -517,7 +518,7 @@ def train_z(gen=None):
             optimizer.step()
             optimizer.zero_grad()
             bt1 = time.time()
-            if i_batch % 20 == 0:
+            if i_batch % pargs.save_freq == 0:
                 iteration = epoch_length * epoch + i_batch
 
                 writer.add_scalar('loss/total_loss', loss.detach().cpu().numpy(), iteration)
@@ -527,7 +528,7 @@ def train_z(gen=None):
                 writer.add_scalar('misc/learning_rate', optimizer.param_groups[0]["lr"], iteration)
 
             # if epoch % max(min((args.n_epochs // 10), 100), 1) == 0:
-            if epoch % 20 == 0:
+            if epoch % pargs.save_freq == 0:
                 writer.add_image('patch', adv_patch.squeeze(0), iteration)
                 rpath = os.path.join(results_dir, 'patch%d' % epoch)
                 np.save(rpath, adv_patch.detach().cpu().numpy())
@@ -563,8 +564,8 @@ def train_z(gen=None):
         et0 = time.time()
         writer.flush()
         
-        # 每20个epoch保存一次检查点
-        if epoch % 20 == 0:
+        # 每pargs.save_freq个epoch保存一次检查点
+        if epoch % pargs.save_freq == 0:
             checkpoint_state = {
                 'epoch': epoch,
                 'z': z.detach().cpu(),
