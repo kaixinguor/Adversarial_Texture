@@ -165,14 +165,12 @@ def set_random_seed():
     import numpy as np
     np.random.seed(42)
     torch.manual_seed(42)
-    # torch.backends.cudnn.deterministic = True  # 确保CuDNN使用确定性算法
-    # torch.backends.cudnn.benchmark = False     # 关闭自动优化（避免非确定性）
+    torch.backends.cudnn.deterministic = True  # 确保CuDNN使用确定性算法
+    torch.backends.cudnn.benchmark = False     # 关闭自动优化（避免非确定性）
     # torch.use_deterministic_algorithms(True)   # 强制使用确定性算法（PyTorch 1.7+）
 
 if __name__ == "__main__":
     # test_basic_function()
-
-
 
     # 评测四种方法
     for method in ['RCA', 'TCA', 'EGA', 'TCEGA']:
