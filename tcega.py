@@ -224,63 +224,6 @@ class TCEGA:
         # 实现TCEGA攻击逻辑
         # 这里需要根据原始代码实现具体的攻击算法
         pass
-      
-    def evaluate_attack(self, data_loader, original_results_folder, adversarial_results_folder,
-                        epsilon=0.04, alpha=0.01, num_iter=10, debug=False):
-        """
-        评估TCEGA对抗攻击效果
-
-        参数:
-            data_loader: 数据加载器
-            original_results_folder: 原始检测结果保存文件夹
-            adversarial_results_folder: 对抗样本检测结果保存文件夹
-            epsilon: 总扰动上限
-            alpha: 单次迭代扰动大小
-            num_iter: 迭代次数
-
-        返回:
-            评估结果字典
-        """
-        # 创建保存目录
-        if not os.path.exists(original_results_folder):
-            os.makedirs(original_results_folder)
-        if not os.path.exists(adversarial_results_folder):
-            os.makedirs(adversarial_results_folder)
-            
-        # 评估原始模型性能
-        print("Evaluating original model performance...")
-        orig_prec, orig_rec, orig_ap, orig_confs = self._test_model(data_loader, None, None, None, None)
-        
-        # 生成对抗样本并评估
-        print("Generating adversarial examples...")
-        adv_prec, adv_rec, adv_ap, adv_confs = self._test_model(data_loader, None, None, None, None, 
-                                                               is_adversarial=True)
-        
-        # 保存结果
-        self._save_results(original_results_folder, orig_prec, orig_rec, orig_ap, orig_confs, "original")
-        self._save_results(adversarial_results_folder, adv_prec, adv_rec, adv_ap, adv_confs, "adversarial")
-        
-        # 计算攻击效果指标
-        results = {
-            'original': {
-                'precision': orig_prec,
-                'recall': orig_rec,
-                'AP': orig_ap,
-                'confidence_scores': orig_confs
-            },
-            'adversarial': {
-                'precision': adv_prec,
-                'recall': adv_rec,
-                'AP': adv_ap,
-                'confidence_scores': adv_confs
-            },
-            'attack_effectiveness': {
-                'AP_drop': orig_ap - adv_ap,
-                'AP_drop_ratio': (orig_ap - adv_ap) / orig_ap if orig_ap > 0 else 0
-            }
-        }
-        
-        return results
     
     def _test_model(self, loader, adv_cloth=None, gan=None, z=None, type=None, 
                    conf_thresh=0.5, nms_thresh=0.4, iou_thresh=0.5, num_of_samples=100,
@@ -387,25 +330,6 @@ class TCEGA:
             avg = float('nan')
 
         return precision, recall, avg, confs
-    
-    def _save_results(self, save_dir, precision, recall, ap, confs, prefix):
-        """保存测试结果"""
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
-            
-        save_path = os.path.join(save_dir, f"{prefix}_results")
-        np.savez(save_path, prec=precision, rec=recall, ap=ap, confs=confs)
-        
-        # 绘制PR曲线
-        plt.figure(figsize=[15, 10])
-        plt.plot(recall, precision)
-        plt.title(f'{prefix.capitalize()} PR-curve')
-        plt.ylabel('Precision')
-        plt.xlabel('Recall')
-        plt.ylim([0, 1.05])
-        plt.xlim([0, 1.05])
-        plt.savefig(os.path.join(save_dir, f'{prefix}_PR-curve.png'), dpi=300)
-        plt.close()
 
     def prepare_data(self):
 
