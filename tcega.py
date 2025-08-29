@@ -304,7 +304,7 @@ class TCEGA:
     
     def _test_model(self, loader, adv_cloth=None, gan=None, z=None, type=None, 
                    conf_thresh=0.5, nms_thresh=0.4, iou_thresh=0.5, num_of_samples=100,
-                   old_fasion=True, is_adversarial=False):
+                   old_fasion=True):
         """测试模型性能"""
         self.model.eval()
         total = 0.0
@@ -317,32 +317,30 @@ class TCEGA:
             for batch_idx, (data, target) in tqdm(enumerate(loader), total=batch_num, position=0):
                 data = data.to(self.device)
                 
-                # 如果是对抗样本测试，应用对抗patch
-                if is_adversarial and adv_cloth is not None:
-                    if type == 'gan':
-                        z = torch.randn(1, 128, *self.args.z_size, device=self.device)
-                        cloth = gan.generate(z)
-                        adv_patch, x, y = random_crop(cloth, self.args.crop_size, 
-                                                    pos=self.args.pos, crop_type=self.args.crop_type)
-                    elif type == 'z':
-                        z_crop, _, _ = random_crop(z, self.args.z_crop_size, 
-                                                 pos=self.args.z_pos, crop_type=self.args.z_crop_type)
-                        cloth = gan.generate(z_crop)
-                        adv_patch, x, y = random_crop(cloth, self.args.crop_size, 
-                                                    pos=self.args.pos, crop_type=self.args.crop_type)
-                    elif type == 'patch':
-                        adv_patch, x, y = random_crop(adv_cloth, self.args.crop_size, 
-                                                    pos=self.args.pos, crop_type=self.args.crop_type)
-                    else:
-                        adv_patch = None
-                        
-                    if adv_patch is not None:
-                        target = target.to(self.device)
-                        adv_batch_t = self.patch_transformer(adv_patch, target, self.args.img_size, 
-                                                          do_rotate=True, rand_loc=False,
-                                                          pooling=self.args.pooling, 
-                                                          old_fasion=old_fasion)
-                        data = self.patch_applier(data, adv_batch_t)
+                if type == 'gan':
+                    z = torch.randn(1, 128, *self.args.z_size, device=self.device)
+                    cloth = gan.generate(z)
+                    adv_patch, x, y = random_crop(cloth, self.args.crop_size, 
+                                                pos=self.args.pos, crop_type=self.args.crop_type)
+                elif type == 'z':
+                    z_crop, _, _ = random_crop(z, self.args.z_crop_size, 
+                                                pos=self.args.z_pos, crop_type=self.args.z_crop_type)
+                    cloth = gan.generate(z_crop)
+                    adv_patch, x, y = random_crop(cloth, self.args.crop_size, 
+                                                pos=self.args.pos, crop_type=self.args.crop_type)
+                elif type == 'patch':
+                    adv_patch, x, y = random_crop(adv_cloth, self.args.crop_size, 
+                                                pos=self.args.pos, crop_type=self.args.crop_type)
+                elif type is not None:
+                    raise ValueError
+                    
+                if adv_patch is not None:
+                    target = target.to(self.device)
+                    adv_batch_t = self.patch_transformer(adv_patch, target, self.args.img_size, 
+                                                        do_rotate=True, rand_loc=False,
+                                                        pooling=self.args.pooling, 
+                                                        old_fasion=old_fasion)
+                    data = self.patch_applier(data, adv_batch_t)
                 
                 output = self.model(data)
                 all_boxes = utils.get_region_boxes_general(output, self.model, 
