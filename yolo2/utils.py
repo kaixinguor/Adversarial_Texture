@@ -465,7 +465,7 @@ def get_region_boxes(output, conf_thresh, num_classes, anchors, num_anchors, onl
     output = output.view(5 + num_classes, batch * num_anchors * h * w)
     # grid_x = torch.linspace(0, w-1, w).repeat(h,1).repeat(batch*num_anchors, 1, 1).view(batch*num_anchors*h*w).to(output)
     # grid_y = torch.linspace(0, h-1, h).repeat(w,1).t().repeat(batch*num_anchors, 1, 1).view(batch*num_anchors*h*w).to(output)
-    grid_y, grid_x = torch.meshgrid([torch.arange(w, device=device), torch.arange(h, device=device)])
+    grid_y, grid_x = torch.meshgrid([torch.arange(w, device=device), torch.arange(h, device=device)], indexing='ij')
     grid_x = grid_x.repeat(batch * num_anchors, 1, 1).flatten()
     grid_y = grid_y.repeat(batch * num_anchors, 1, 1).flatten()
     xs = torch.sigmoid(output[0]) + grid_x

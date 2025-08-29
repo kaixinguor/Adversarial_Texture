@@ -204,11 +204,11 @@ class PatchTransformer(nn.Module):
 
         # add pooling
         #adv_patch = F.conv2d(adv_patch.unsqueeze(0),self.kernel,padding=(2,2))
-        if pooling is 'median':
+        if pooling == 'median':
             adv_patch = self.medianpooler(adv_patch)
-        elif pooling is 'avg':
+        elif pooling == 'avg':
             adv_patch = F.avg_pool2d(adv_patch, 7, 3)
-        elif pooling is 'gauss':
+        elif pooling == 'gauss':
             adv_patch = F.conv2d(adv_patch, self.kernel, padding=2)
         elif pooling is not None:
             raise ValueError
@@ -333,10 +333,10 @@ class PatchTransformer(nn.Module):
 
         # b_sh = adv_batch.shape
         # grid = F.affine_grid(theta, adv_batch.shape)
-        grid = F.affine_grid(theta, [SBS, C, img_size, img_size])
+        grid = F.affine_grid(theta, [SBS, C, img_size, img_size], align_corners=True)
 
-        adv_batch_t = F.grid_sample(adv_batch, grid)
-        msk_batch_t = F.grid_sample(msk_batch.to(adv_batch), grid)
+        adv_batch_t = F.grid_sample(adv_batch, grid, align_corners=True)
+        msk_batch_t = F.grid_sample(msk_batch.to(adv_batch), grid, align_corners=True)
 
 
         '''
@@ -349,9 +349,9 @@ class PatchTransformer(nn.Module):
         theta2[:, 1, 1] = 1
         theta2[:, 1, 2] = (-target_y + 0.5) * 2
 
-        grid2 = F.affine_grid(theta2, adv_batch.shape)
-        adv_batch_t = F.grid_sample(adv_batch_t, grid2)
-        msk_batch_t = F.grid_sample(msk_batch_t, grid2)
+        grid2 = F.affine_grid(theta2, adv_batch.shape, align_corners=True)
+        adv_batch_t = F.grid_sample(adv_batch_t, grid2, align_corners=True)
+        msk_batch_t = F.grid_sample(msk_batch_t, grid2, align_corners=True)
 
         '''
         adv_batch_t = adv_batch_t.view(B, L, C, img_size, img_size)
