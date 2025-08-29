@@ -159,26 +159,6 @@ class TCEGA:
         else:
             raise ValueError(f"Unsupported method: {self.method}")
         
-    def load_dataset(self, image_folder, label_file):
-        """
-        加载自定义数据集
-
-        参数:
-            image_folder: 图像文件夹路径
-            label_file: 标签文件路径
-
-        返回:
-            InriaDataset实例
-        """
-        if self.kwargs:
-            return load_data.InriaDataset(image_folder, label_file, 
-                                        self.kwargs['max_lab'], 
-                                        self.args.img_size if self.args else 416, 
-                                        shuffle=False)
-        else:
-            # 如果没有kwargs，使用默认参数
-            return load_data.InriaDataset(image_folder, label_file, 15, 416, shuffle=False)
-
     def detect(self, image):
         """
         检测图像
@@ -479,11 +459,12 @@ class TCEGA:
         # 创建测试数据加载器
         img_dir_test = './data/test_padded'
         lab_dir_test = f'./data/test_lab_{self.kwargs["name"] if self.kwargs else "yolov2"}'
-        test_data = load_data.InriaDataset(img_dir_test, lab_dir_test, 
-                                         self.kwargs['max_lab'] if self.kwargs else 15, 
-                                         self.args.img_size if self.args else 416, 
+        test_data = load_data.InriaDataset(img_dir_test,
+                                           lab_dir_test, 
+                                         self.kwargs['max_lab'], 
+                                         self.args.img_size, 
                                          shuffle=False)
-        test_loader = torch.utils.data.DataLoader(test_data, batch_size=8, shuffle=False, num_workers=10)
+        test_loader = torch.utils.data.DataLoader(test_data, self.args.batch_size, shuffle=False, num_workers=10)
         
         # 运行测试
         plt.figure(figsize=[15, 10])

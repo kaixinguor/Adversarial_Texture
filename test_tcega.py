@@ -148,7 +148,7 @@ def test_basic_function():
         del tcega
         torch.cuda.empty_cache() if torch.cuda.is_available() else None
     
-def test_evaluate(method='TCEGA'):
+def test_evaluate(method='TCEGA',prepare_data=False):
     """测试评估功能"""
     print(f"\n评估{method}方法...")
  
@@ -156,7 +156,7 @@ def test_evaluate(method='TCEGA'):
     
     tcega = TCEGA(method=method)
     
-    tcega.run_evaluation(save_dir=f'./test_results_reproduce/{method}')
+    tcega.run_evaluation(save_dir=f'./test_results_reproduce/{method}', prepare_data=prepare_data)
     
 def set_random_seed():
     
@@ -173,6 +173,9 @@ if __name__ == "__main__":
     # test_basic_function()
 
     # 评测四种方法
-    for method in ['RCA', 'TCA', 'EGA', 'TCEGA']:
+    for method_idx, method in enumerate(['RCA', 'TCA', 'EGA', 'TCEGA']):
         set_random_seed()
-        test_evaluate(method)
+        if method_idx == 0:
+            test_evaluate(method, prepare_data=True)
+        else:
+            test_evaluate(method, prepare_data=False)
