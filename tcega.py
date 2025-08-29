@@ -76,9 +76,10 @@ class TCEGA:
         
         # 数据变换
         self.transform = transforms.Compose([
-            transforms.Resize((416, 416)),
             transforms.ToTensor(),
         ])
+
+        self.adv_patch = self.generate_adv_patch()
     
     def _load_model(self, model_name):
         """加载模型"""
@@ -159,14 +160,43 @@ class TCEGA:
         else:
             raise ValueError(f"Unsupported method: {self.method}")
         
-    def detect(self, image):
+    def detect(self, image, proprocess=True):
         """
         检测图像
         """
+        # 预处理原始图片
         if isinstance(image, Image.Image):
-            image_tensor = self.transform(image).unsqueeze(0).to(self.device)
+            processed_image = self.preprocess_single_image(image)
+            image_tensor = self.transform(processed_image).unsqueeze(0).to(self.device)
         else:
             image_tensor = image.to(self.device)
+        
+        # 检测原始图片
+        with torch.no_grad():
+            original_output = self.model(image_tensor)
+            detection_boxes = self.postprocess_detection_output(original_output, conf_thresh=0.5, nms_thresh=0.4)
+            # [xs/w, ys/h, ws/w, hs/h, det_confs, cls_max_confs, cls_max_ids]
+            bboxes = detection_boxes[:, [0, 1, 2, 3]]
+            labels = detection_boxes[:, [6]]
+            scores = detection_boxes[:, [4]]
+
+        bboxes[:, [0]] = bboxes[:, [0]] * image.size[0]  # center_x * width
+        bboxes[:, [1]] = bboxes[:, [1]] * image.size[1]  # center_y * height  
+        bboxes[:, [2]] = bboxes[:, [2]] * image.size[0]  # width * width
+        bboxes[:, [3]] = bboxes[:, [3]] * image.size[1]  # height * height
+
+        # 从中心格式转换为角点格式
+        center_x = bboxes[:, 0]
+        center_y = bboxes[:, 1]
+        width = bboxes[:, 2]
+        height = bboxes[:, 3]
+
+        bboxes[:, 0] = center_x - width / 2   # x1
+        bboxes[:, 1] = center_y - height / 2 # y1
+        bboxes[:, 2] = center_x + width / 2  # x2
+        bboxes[:, 3] = center_y + height / 2 # y2
+
+        return image_tensor, dict(bboxes=bboxes, labels=labels, scores=scores)
             
         output = self.model(image_tensor)
         return output[0]
@@ -180,16 +210,24 @@ class TCEGA:
         Returns:
             PIL Image: RGB [H,W,C] 对抗样本
         """
-        # 这里实现具体的对抗样本生成逻辑
-        # 根据不同的method实现不同的攻击策略
-        if self.method == 'TCEGA':
-            return self._generate_tcega_example(image)
-        elif self.method == 'EGA':
-            return self._generate_ega_example(image)
-        elif self.method in ['RCA', 'TCA']:
-            return self._generate_patch_example(image)
+        # 预处理原始图片
+        if isinstance(image, Image.Image):
+            processed_image = self.preprocess_single_image(image)
+            image_tensor = self.transform(processed_image).unsqueeze(0).to(self.device)
         else:
-            raise ValueError(f"Unsupported method: {self.method}")
+            image_tensor = image.to(self.device)
+        
+        # 检测原始图片
+        with torch.no_grad():
+            original_output = self.model(image_tensor)
+            detection_results = self.postprocess_detection_output(original_output, conf_thresh=0.5, nms_thresh=0.4)
+            # [xs/w, ys/h, ws/w, hs/h, det_confs, cls_max_confs, cls_max_ids]
+        dets = detection_results[:, [6, 0, 1, 2, 3]]
+
+        if self.adv_patch is None:
+            self.adv_patch = self.generate_adv_patch()
+        adv_image_tensor = self.apply_patch_to_image(image_tensor, self.adv_patch, dets)
+        return adv_image_tensor
     
     def _generate_tcega_example(self, image):
         """生成TCEGA对抗样本"""
@@ -206,46 +244,8 @@ class TCEGA:
         """生成patch-based对抗样本"""
         # 实现patch-based攻击的具体逻辑
         pass
-
-    def single_image_inference(self, image, conf_thresh=0.5, nms_thresh=0.4, iou_thresh=0.5):
-        """
-        单图推理模式：对单张图片进行预处理、贴patch、后处理等完整流程
-        
-        Args:
-            image: PIL Image 或 numpy array，输入图片
-            conf_thresh: 置信度阈值
-            nms_thresh: NMS阈值
-            iou_thresh: IoU阈值
-            
-        Returns:
-            tuple: (adversarial_image, detection_results)
-                - adversarial_image: PIL Image，贴了patch的图片
-                - detection_results: dict，包含检测结果的字典
-        """
-        # 确保输入是PIL Image
-        if isinstance(image, np.ndarray):
-            image = Image.fromarray(image)
-        elif not isinstance(image, Image.Image):
-            raise ValueError("Input must be PIL Image or numpy array")
-        
-        # 1. 预处理：填充和缩放
-        processed_image, processed_label = self._preprocess_single_image(image)
-        
-        # 2. 生成对抗patch
-        adv_patch = self._generate_adv_patch_for_single_image()
-        
-        # 3. 应用patch
-        adversarial_image_tensor = self._apply_patch_to_single_image(processed_image, adv_patch, processed_label)
-        
-        # 4. 后处理：检测
-        detection_results = self._postprocess_single_image(adversarial_image_tensor, conf_thresh, nms_thresh, iou_thresh)
-        
-        # 5. 转换回PIL Image
-        adversarial_image = unloader(adversarial_image_tensor[0].detach().cpu())
-        
-        return adversarial_image, detection_results
     
-    def _preprocess_single_image(self, image):
+    def preprocess_single_image(self, image):
         """
         对单张图片进行预处理：填充和缩放
         """
@@ -255,48 +255,54 @@ class TCEGA:
         else:
             img_size = 416  # 默认值
             
-        # 创建虚拟标签（用于patch变换）
-        # 假设图片中心有一个目标，大小为图片的20%
-        h, w = image.size[1], image.size[0]
-        center_x, center_y = 0.5, 0.5
-        target_w, target_h = 0.2, 0.4  # 相对尺寸
-        
-        # 创建标签格式：[class_id, center_x, center_y, width, height]
-        # class_id=0 表示person类别
-        label = torch.tensor([[0, center_x, center_y, target_w, target_h]], dtype=torch.float32)
-        
         # 填充和缩放图片
-        padded_image = self._pad_and_scale_image(image, img_size)
+        padded_image, _ = self.pad_and_scale(image, imgsize=img_size)
         
-        return padded_image, label
+        return padded_image
     
-    def _pad_and_scale_image(self, image, target_size):
+    def postprocess_detection_output(self, output, conf_thresh=0.5, nms_thresh=0.4):
+        all_boxes = utils.get_region_boxes_general(output, self.model, conf_thresh, self.kwargs['name'])
+        for i in range(len(all_boxes)):
+            boxes = all_boxes[i]
+            boxes = utils.nms(boxes, nms_thresh) # [xs/w, ys/h, ws/w, hs/h, det_confs, cls_max_confs, cls_max_ids]
+            boxes = boxes.detach().cpu().numpy()
+            return boxes
+
+    def pad_and_scale(self, img, label=None, imgsize=416):
         """
-        对图片进行填充和缩放，使其达到目标尺寸
+        yolo2.load_data.py  InriaDataset  pad_and_scale
+        Args:
+            img:
+
+        Returns:
+
         """
-        # 计算填充
-        w, h = image.size
-        target_w, target_h = target_size, target_size
-        
-        # 计算缩放比例
-        scale = min(target_w / w, target_h / h)
-        new_w, new_h = int(w * scale), int(h * scale)
-        
-        # 缩放图片
-        resized_image = image.resize((new_w, new_h), Image.LANCZOS)
-        
-        # 创建目标尺寸的图片并居中放置
-        target_image = Image.new('RGB', (target_w, target_h), (128, 128, 128))
-        
-        # 计算偏移量使图片居中
-        offset_x = (target_w - new_w) // 2
-        offset_y = (target_h - new_h) // 2
-        
-        target_image.paste(resized_image, (offset_x, offset_y))
-        
-        return target_image
+        w, h = img.size
+        if w == h:
+            padded_img = img
+        else:
+            dim_to_pad = 1 if w < h else 2
+            if dim_to_pad == 1:
+                padding = (h - w) / 2
+                padded_img = Image.new('RGB', (h,h), color=(127,127,127))
+                padded_img.paste(img, (int(padding), 0))
+                if label is not None:
+                    for i in range(len(label)):
+                        label[i][:, [1]] = (label[i][:, [1]] * w + padding) / h
+                        label[i][:, [3]] = (label[i][:, [3]] * w / h)
+            else:
+                padding = (w - h) / 2
+                padded_img = Image.new('RGB', (w, w), color=(127,127,127))
+                padded_img.paste(img, (0, int(padding)))
+                if label is not None:
+                    for i in range(len(label)):
+                        label[i][:, [2]] = (label[i][:, [2]] * h + padding) / w
+                        label[i][:, [4]] = (label[i][:, [4]] * h / w)
+        resize = transforms.Resize((imgsize, imgsize))
+        padded_img = resize(padded_img)     #choose here
+        return padded_img, label
     
-    def _generate_adv_patch_for_single_image(self):
+    def generate_adv_patch(self):
         """
         为单张图片生成对抗patch
         """
@@ -319,17 +325,15 @@ class TCEGA:
         
         return adv_patch
     
-    def _apply_patch_to_single_image(self, image, adv_patch, label):
+    def apply_patch_to_image(self, image, adv_patch, label):
         """
         将对抗patch应用到单张图片上
         """
-        # 转换为tensor
-        if isinstance(image, Image.Image):
-            image_tensor = self.transform(image).unsqueeze(0).to(self.device)
-        else:
-            image_tensor = image.to(self.device)
+        # 转换为tensor 网络输入tensor
+        image_tensor = image.to(self.device)
         
         # 扩展label维度以匹配batch处理
+        label = torch.from_numpy(label).float()
         label_batch = label.unsqueeze(0).to(self.device)
         
         # 使用patch transformer处理patch
@@ -342,54 +346,6 @@ class TCEGA:
         adversarial_image = self.patch_applier(image_tensor, adv_batch_t)
         
         return adversarial_image
-    
-    def _postprocess_single_image(self, image_tensor, conf_thresh, nms_thresh, iou_thresh):
-        """
-        对单张图片进行后处理：目标检测
-        """
-        # 确保模型处于评估模式
-        self.model.eval()
-        
-        with torch.no_grad():
-            # 前向传播
-            output = self.model(image_tensor)
-            
-            # 获取检测框
-            all_boxes = utils.get_region_boxes_general(output, self.model, 
-                                                    conf_thresh, 
-                                                    self.kwargs.get('name', 'yolov2'))
-            
-            # 处理检测结果
-            detection_results = []
-            for i in range(len(all_boxes)):
-                boxes = all_boxes[i]
-                # 应用NMS
-                boxes = utils.nms(boxes, nms_thresh)
-                
-                # 解析检测结果
-                for box in boxes:
-                    if box[6].item() == 0:  # person类别
-                        detection_result = {
-                            'class_id': int(box[6].item()),
-                            'class_name': 'person',
-                            'confidence': float(box[4].item()),
-                            'bbox': {
-                                'x1': float(box[0].item()),
-                                'y1': float(box[1].item()),
-                                'x2': float(box[2].item()),
-                                'y2': float(box[3].item())
-                            }
-                        }
-                        detection_results.append(detection_result)
-            
-            # 按置信度排序
-            detection_results.sort(key=lambda x: x['confidence'], reverse=True)
-            
-            return {
-                'detections': detection_results,
-                'num_detections': len(detection_results),
-                'model_output': output[0].detach().cpu().numpy() if output[0] is not None else None
-            }
 
     def tcega_attack(self, images, labels=[]):
         """

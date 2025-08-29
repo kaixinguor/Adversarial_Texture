@@ -152,6 +152,7 @@ def test(model, loader, adv_cloth=None, gan=None, z=None, type=None, conf_thresh
         positives = []
         for batch_idx, (data, target) in tqdm(enumerate(loader), total=batch_num, position=0):
             data = data.to(device)
+            # set_random_seed()
             if type == 'gan':
                 z = torch.randn(1, 128, *args.z_size, device=device)
                 cloth = gan.generate(z)
