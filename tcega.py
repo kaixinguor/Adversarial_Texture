@@ -117,8 +117,8 @@ class TCEGA:
                 img_path = os.path.join(result_dir, f'patch{self.args.n_epochs}.npy')
             else:
                 img_path = load_path
-            self.adv_cloth = torch.from_numpy(np.load(img_path)[:1]).to(self.device)
-            self.test_cloth = self.adv_cloth.detach().clone()
+            self.cloth = torch.from_numpy(np.load(img_path)[:1]).to(self.device)
+            self.test_cloth = self.cloth.detach().clone()
             self.test_gan = None
             self.test_z = None
             self.test_type = 'patch'
@@ -426,8 +426,44 @@ class TCEGA:
         plt.xlim([0, 1.05])
         plt.savefig(os.path.join(save_dir, f'{prefix}_PR-curve.png'), dpi=300)
         plt.close()
-            
-    def run_evaluation(self, save_dir='./test_results'):
+
+    def prepare_data(self):
+
+        conf_thresh = 0.5
+        nms_thresh = 0.4
+        img_ori_dir = './data/INRIAPerson/Test/pos'
+        img_dir = './data/test_padded'
+        lab_dir = './data/test_lab_%s' % self.kwargs['name']
+        data_nl = load_data.InriaDataset(img_ori_dir, None, self.kwargs['max_lab'], self.args.img_size, shuffle=False)
+        loader_nl = torch.utils.data.DataLoader(data_nl, batch_size=self.args.batch_size, shuffle=False, num_workers=10)
+        if lab_dir is not None:
+            if not os.path.exists(lab_dir):
+                os.makedirs(lab_dir)
+        if img_dir is not None:
+            if not os.path.exists(img_dir):
+                os.makedirs(img_dir)
+        print('preparing the test data')
+        with torch.no_grad():
+            for batch_idx, (data, labs) in tqdm(enumerate(loader_nl), total=len(loader_nl)):
+                data = data.to(self.device)
+                output = self.model(data)
+                all_boxes = utils.get_region_boxes_general(output, self.model, conf_thresh, self.kwargs['name'])
+                for i in range(data.size(0)):
+                    boxes = all_boxes[i]
+                    boxes = utils.nms(boxes, nms_thresh)
+                    new_boxes = boxes[:, [6, 0, 1, 2, 3]]
+                    new_boxes = new_boxes[new_boxes[:, 0] == 0]
+                    new_boxes = new_boxes.detach().cpu().numpy()
+                    if lab_dir is not None:
+                        save_dir = os.path.join(lab_dir, labs[i])
+                        np.savetxt(save_dir, new_boxes, fmt='%f')
+                        img = unloader(data[i].detach().cpu())
+                    if img_dir is not None:
+                        save_dir = os.path.join(img_dir, labs[i].replace('.txt', '.png'))
+                        img.save(save_dir)
+        print('preparing done')
+
+    def run_evaluation(self, prepare_data=False, save_dir='./test_results'):
         """运行完整的评估流程"""
         if not hasattr(self, 'test_cloth'):
             raise ValueError("Please load pretrained attack model first using load_pretrained_attack()")
@@ -436,6 +472,9 @@ class TCEGA:
             os.makedirs(save_dir)
             
         save_path = os.path.join(save_dir, f'yolov2_{self.method}')
+
+        if prepare_data:
+            self.prepare_data()
         
         # 创建测试数据加载器
         img_dir_test = './data/test_padded'

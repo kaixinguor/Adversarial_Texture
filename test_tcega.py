@@ -148,20 +148,33 @@ def test_basic_function():
         del tcega
         torch.cuda.empty_cache() if torch.cuda.is_available() else None
     
-def test_evaluate():
+def test_evaluate(method='TCEGA'):
     """测试评估功能"""
-    print("\n测试评估功能...")
+    print(f"\n评估{method}方法...")
  
     from tcega import TCEGA
     
-    tcega = TCEGA(method='TCEGA', device='cpu')
+    tcega = TCEGA(method=method)
     
-    tcega.run_evaluation(save_dir='./test_results1')
+    tcega.run_evaluation(save_dir=f'./test_results_reproduce/{method}')
     
+def set_random_seed():
     
-
+    # 关闭随机性
+    import torch
+    import numpy as np
+    np.random.seed(42)
+    torch.manual_seed(42)
+    # torch.backends.cudnn.deterministic = True  # 确保CuDNN使用确定性算法
+    # torch.backends.cudnn.benchmark = False     # 关闭自动优化（避免非确定性）
+    # torch.use_deterministic_algorithms(True)   # 强制使用确定性算法（PyTorch 1.7+）
 
 if __name__ == "__main__":
     # test_basic_function()
 
-    test_evaluate()
+
+
+    # 评测四种方法
+    for method in ['RCA', 'TCA', 'EGA', 'TCEGA']:
+        set_random_seed()
+        test_evaluate(method)
