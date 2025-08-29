@@ -245,7 +245,10 @@ def train_EGA():
 def train_z(gen=None):
     if gen is None:
         gen = GAN_dis(DIM=128, z_dim=128, img_shape=(324,) * 2)
-        suffix_load = pargs.gen_suffix
+        if pargs.gen_suffix is None:
+            suffix_load = pargs.suffix
+        else:
+            suffix_load = pargs.gen_suffix
         result_dir = './results/result_' + suffix_load
         d = torch.load(os.path.join(result_dir, suffix_load + '.pkl'), map_location='cpu')
         gen.load_state_dict(d)
@@ -335,7 +338,8 @@ elif pargs.method == 'TCA':
 elif pargs.method == 'EGA':
     train_EGA()
 elif pargs.method == 'TCEGA':
-    gen = train_EGA()
-    print('Start optimize z')
-    train_z(gen)
+    # gen = train_EGA()
+    # print('Start optimize z')
+    # train_z(gen)
 
+    train_z()

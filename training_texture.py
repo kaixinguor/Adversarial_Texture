@@ -383,7 +383,7 @@ def train_EGA():
                 writer.add_image('patch', adv_patch[0], iteration)
                 rpath = os.path.join(results_dir, 'patch%d' % epoch)
                 np.save(rpath, adv_patch.detach().cpu().numpy())
-                torch.save(gen.state_dict(), os.path.join(results_dir, pargs.suffix + '.pkl'))
+                torch.save(gen.state_dict(), os.path.join(results_dir, f"{pargs.suffix}_epoch{epoch}.pkl"))
                 
                 # 保存最佳模型
                 if loss.item() < best_loss:
