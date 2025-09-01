@@ -104,7 +104,8 @@ def test_single_image_inference():
             preprocessed_image, 
             adversarial_image, 
             original_results, 
-            adversarial_results
+            adversarial_results,
+            tcega.class_names
         )
         print("   ✓ 对比可视化已保存")
     except Exception as e:
@@ -115,7 +116,7 @@ def test_single_image_inference():
     return True
 
 def create_comparison_visualization(original_image, processed_image, adversarial_image, 
-                                  original_detections, adversarial_detections):
+                                  original_detections, adversarial_detections, class_names):
     """创建对比可视化"""
     
     # 创建大图
@@ -159,8 +160,13 @@ def create_comparison_visualization(original_image, processed_image, adversarial
                 orig_img_with_boxes[y1:y1+3, x1:x2] = [0, 255, 0]  # 上边（绿色）
                 orig_img_with_boxes[y2-3:y2, x1:x2] = [0, 255, 0]  # 下边（绿色）
                 
-                # 添加置信度标签
-                plt.text(x1, y1-5, f'{score[0]:.3f}', 
+                # 获取类别名称
+                class_id = int(label[0])
+                class_name = class_names[class_id] if class_id < len(class_names) else f'Class_{class_id}'
+                
+                # 添加类别名称和置信度标签
+                label_text = f'{class_name}: {score[0]:.3f}'
+                plt.text(x1, y1-5, label_text, 
                         color='green', fontsize=10, fontweight='bold',
                         bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.8))
     
@@ -188,8 +194,13 @@ def create_comparison_visualization(original_image, processed_image, adversarial
                 adv_img_with_boxes[y1:y1+3, x1:x2] = [255, 0, 0]  # 上边（红色）
                 adv_img_with_boxes[y2-3:y2, x1:x2] = [255, 0, 0]  # 下边（红色）
                 
-                # 添加置信度标签
-                plt.text(x1, y1-5, f'{score[0]:.3f}', 
+                # 获取类别名称
+                class_id = int(label[0])
+                class_name = class_names[class_id] if class_id < len(class_names) else f'Class_{class_id}'
+                
+                # 添加类别名称和置信度标签
+                label_text = f'{class_name}: {score[0]:.3f}'
+                plt.text(x1, y1-5, label_text, 
                         color='red', fontsize=10, fontweight='bold',
                         bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.8))
     
