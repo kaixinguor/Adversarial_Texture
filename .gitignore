@@ -1,4 +1,5 @@
 __pycache__
+.vscode
 
 
 
@@ -9,3 +10,4 @@ data/test_padded/
 
 
 results*
+
