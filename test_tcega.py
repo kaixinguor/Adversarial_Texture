@@ -12,7 +12,8 @@ def test_evaluate(method='TCEGA',prepare_data=False):
     """测试评估功能"""
     print(f"\n评估{method}方法...")
  
-    from tcega import TCEGA
+    # from tcega import TCEGA
+    from torchart.physical.tcega import TCEGA
     
     tcega = TCEGA(method=method)
     
@@ -40,4 +41,4 @@ if __name__ == "__main__":
     #     else:
     #         test_evaluate(method, prepare_data=False)
     set_random_seed()
-    test_evaluate('TCA', prepare_data=False)
+    test_evaluate('TCA', prepare_data=True)

@@ -12,7 +12,8 @@ unloader = transforms.ToPILImage()
 # 添加当前目录到Python路径
 sys.path.append('.')
 
-from tcega import TCEGA
+# from tcega import TCEGA
+from torchart.physical.tcega import TCEGA
 
 def set_chinese_font():
     # 设置matplotlib支持中文显示
