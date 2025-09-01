@@ -3,13 +3,10 @@
 测试TCEGA类的单图推理模式
 """
 
-import os
 import sys
-import torch
 from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
-import yolo2.utils
 from torchvision import transforms
 unloader = transforms.ToPILImage()
 # 添加当前目录到Python路径

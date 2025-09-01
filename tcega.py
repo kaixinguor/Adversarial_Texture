@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 from yolo2 import load_data
 from yolo2 import utils
-from utils import pad_and_scale, random_crop
+from utils import random_crop
 from cfg import get_cfgs
 from tps_grid_gen import TPSGridGen
 from load_models import load_models
