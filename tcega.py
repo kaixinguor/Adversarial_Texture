@@ -3,23 +3,158 @@ import torch
 import itertools
 from tqdm import tqdm
 import numpy as np
+from easydict import EasyDict
 from scipy.interpolate import interp1d
-from torchvision import transforms
 from PIL import Image
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+import torch.nn.functional as F
+from torchvision import transforms
+
 from yolo2 import load_data
 from yolo2 import utils
-from utils import random_crop
-from cfg import get_cfgs
 from tps_grid_gen import TPSGridGen
-from load_models import load_models
 from generator_dim import GAN_dis
 
 unloader = transforms.ToPILImage()
 
+def random_crop(cloth, crop_size, pos=None, crop_type=None, fill=0):
+    """
+    @adversarial_texture/utils.py random_crop
+    """
+    w = cloth.shape[2]
+    h = cloth.shape[3]
+    if crop_size == 'equal':
+        crop_size = [w, h]
+    if crop_type is None:
+        d_w = w - crop_size[0]
+        d_h = h - crop_size[1]
+        if pos is None:
+            r_w = np.random.randint(d_w + 1)
+            r_h = np.random.randint(d_h + 1)
+        elif pos == 'center':
+            r_w, r_h = (np.array(cloth.shape[2:]) - np.array(crop_size)) // 2
+        else:
+            r_w = pos[0]
+            r_h = pos[1]
+
+        p1 = max(0, 0 - r_h)
+        p2 = max(0, r_h + crop_size[1] - h)
+        p3 = max(0, 0 - r_w)
+        p4 = max(0, r_w + crop_size[1] - w)
+        cloth_pad = F.pad(cloth, [p1, p2, p3, p4], value=fill)
+        patch = cloth_pad[:, :, r_w:r_w + crop_size[0], r_h:r_h + crop_size[1]]
+
+    elif crop_type == 'recursive':
+        if pos is None:
+            r_w = np.random.randint(w)
+            r_h = np.random.randint(h)
+        elif pos == 'center':
+            r_w, r_h = (np.array(cloth.shape[2:]) - np.array(crop_size)) // 2
+            if r_w < 0:
+                r_w = r_w % w
+            if r_h < 0:
+                r_h = r_h % h
+        else:
+            r_w = pos[0]
+            r_h = pos[1]
+        expand_w = (w + crop_size[0] - 1) // w + 1
+        expand_h = (h + crop_size[1] - 1) // h + 1
+        cloth_expanded = cloth.repeat([1, 1, expand_w, expand_h])
+        patch = cloth_expanded[:, :, r_w:r_w + crop_size[0], r_h:r_h + crop_size[1]]
+
+    else:
+        raise ValueError
+    return patch, r_w, r_h
+
+# 临时使用yolov2，后续扩展检测器后再整理
+from yolo2.darknet import Darknet
+def load_models(**kwargs):
+    """@adversarial_texture/load_models.py load_models
+    """
+    if kwargs['name'] == 'yolov2':
+        darknet_model = Darknet(kwargs['cfgfile'])
+        darknet_model.load_weights(kwargs['weightfile'])
+    return darknet_model
+
+targs_RCA = {
+    'pos': None,
+    'crop_size': [150] * 2,
+    'crop_type': None,
+    'pixel_size': [1] * 2,
+    'pooling': 'gauss',
+    'img_size': 416,
+    'batch_size': 8,
+}
+
+targs_TCA = {
+    'pos': None,
+    'crop_size': [150] * 2,
+    'crop_type': 'recursive',
+    'pixel_size': [1] * 2,
+    'pooling': 'gauss',
+
+    'img_size': 416,
+    'batch_size': 8,
+}
+
+targs_EGA = {
+    'z_size': [9] * 2,
+    'pos': 'center',
+    'crop_size': 'equal',
+    'crop_type': None,
+    'pixel_size': [1] * 2,
+    'pooling': 'median',
+    'img_size': 416,
+    'batch_size': 8,
+}
+
+targs_TCEGA = {
+    'z_pos': None,
+    'z_crop_size': [9] * 2,
+    'z_crop_type': 'recursive',
+    'pos': 'center',
+    'crop_size': 'equal',
+    'crop_type': None,
+    'pixel_size': [1] * 2,
+    'pooling': 'median',
+    'img_size': 416,
+    'batch_size': 8,
+}
+
+v2kwargs={
+    'name': 'yolov2',
+    'cfgfile': "./data/models/yolov2.cfg",
+    'weightfile': "./data/models/yolov2.weights",
+    'max_lab': 15,
+    'batch_size': 8,
+    'old_fasion': True,
+}
+
+kwargs_dict = {
+    'yolov2': v2kwargs,
+}
+
+targs_dict = {
+    'RCA': targs_RCA,
+    'TCA': targs_TCA,
+    'EGA': targs_EGA,
+    'TCEGA': targs_TCEGA
+    }
+
+def get_cfgs(net_name, method_name):
+    """
+    @adversarial_texture/cfg.py get_cfgs
+    """
+    # mode == 'test'
+    args = targs_dict[method_name]
+    args = EasyDict(args)
+  
+    kwargs = kwargs_dict[net_name]
+    return args, kwargs
 
 class TCEGA:
     """
@@ -90,7 +225,7 @@ class TCEGA:
     def _load_model(self, model_name):
         """加载模型"""
         if model_name == "yolov2":
-            args, kwargs = get_cfgs('yolov2', self.method, 'test')
+            args, kwargs = get_cfgs('yolov2', self.method)
             print("model cfg", args, kwargs)
             self.model = load_models(**kwargs)
             self.model = self.model.eval().to(self.device)
