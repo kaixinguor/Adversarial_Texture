@@ -40,51 +40,44 @@ def test_single_image_inference():
     print("初始化TCEGA模型...")
     
     # 初始化TCEGA模型
-    try:
-        tcega = TCEGA(model_name='yolov2', method='TCEGA')
-        print("✓ TCEGA模型初始化成功")
-    except Exception as e:
-        print(f"✗ TCEGA模型初始化失败: {e}")
-        return False
-    
+    tcega = TCEGA( method='TCEGA',model_name='yolov2')
+      
     # 测试图片
     test_image_path = 'data/INRIAPerson/Test/pos/crop_000001.png'
     
     # 加载测试图片
-    try:
-        test_image = Image.open(test_image_path).convert('RGB')
-        print(f"✓ 测试图片加载成功: {test_image.size}")
-    except Exception as e:
-        print(f"✗ 测试图片加载失败: {e}")
-        return False
-    
+    test_image = Image.open(test_image_path).convert('RGB')
+  
+    # 预处理check
+    preprocessed_image = tcega.preprocess_image(test_image)
+    preprocessed_image.save("preprocessed_image.png")
+    compare_processed_image_path = 'data/test_padded/crop_000001.png'
+    compared_processed_image = Image.open(compare_processed_image_path).convert('RGB')
+    print("preprocessed_image and compared_processed_image is the same: ", preprocessed_image == compared_processed_image)
+    exit(0)
+
     # 1. 原始图片检测
     print("\n1. 原始图片检测...")
-    try:
-        test_image_tensor, original_results = tcega.detect(test_image)
-        processed_image = unloader(test_image_tensor[0].detach().cpu())
-        print(f"   ✓ 原始图片检测完成，检测到 {len(original_results['bboxes'])} 个目标")
+    original_results = tcega.detect(test_image)
+    print(f"   ✓ 原始图片检测完成，检测到 {len(original_results['bboxes'])} 个目标")
+
+
+
+    # 打印检测结果详情
+    if len(original_results['bboxes']) > 0:
+        print("   检测结果详情:")
+        for i, (bbox, score, label) in enumerate(zip(original_results['bboxes'], 
+                                                        original_results['scores'], 
+                                                        original_results['labels'])):
+            print(f"   目标 {i+1}: 置信度={score[0]:.3f}, 类别={int(label[0])}, "
+                    f"边界框=({bbox[0]:.1f}, {bbox[1]:.1f}, {bbox[2]:.1f}, {bbox[3]:.1f})")
         
-        # 打印检测结果详情
-        if len(original_results['bboxes']) > 0:
-            print("   检测结果详情:")
-            for i, (bbox, score, label) in enumerate(zip(original_results['bboxes'], 
-                                                         original_results['scores'], 
-                                                         original_results['labels'])):
-                print(f"   目标 {i+1}: 置信度={score[0]:.3f}, 类别={int(label[0])}, "
-                      f"边界框=({bbox[0]:.1f}, {bbox[1]:.1f}, {bbox[2]:.1f}, {bbox[3]:.1f})")
-        
-    except Exception as e:
-        print(f"   ✗ 原始图片检测失败: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
+
 
     # 2. 对抗样本生成和检测
     print("\n2. 对抗样本生成和检测...")
     try:
-        adversarial_image_tensor = tcega.generate_adversarial_example(test_image)
-        adversarial_image = unloader(adversarial_image_tensor[0].detach().cpu())
+        adversarial_image = tcega.generate_adversarial_example(test_image)
         
         # 对对抗样本进行检测
         adv_img_tensor, adversarial_results = tcega.detect(adversarial_image)

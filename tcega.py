@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 from yolo2 import load_data
 from yolo2 import utils
-from utils import *
+from utils import pad_and_scale, random_crop
 from cfg import get_cfgs
 from tps_grid_gen import TPSGridGen
 from load_models import load_models
@@ -37,10 +37,11 @@ class TCEGA:
     """
 
     def __init__(self,
-                 model_name='yolov2',
                  method='TCEGA',
+                 model_name='yolov2',
                  class_mapping=None, 
                  device=None,
+                 img_size=416,
                  args=None,
                  kwargs=None):
         
@@ -48,7 +49,8 @@ class TCEGA:
         self.method = method
         self.device = torch.device(device) if device else torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         
-        
+        self.img_size = img_size
+
         # 加载模型
         self._load_model(model_name)
             
@@ -159,21 +161,59 @@ class TCEGA:
                 self.cloth = self.gan.generate(z_crop)
         else:
             raise ValueError(f"Unsupported method: {self.method}")
+
+    def preprocess_image(self, image):
+        """
+        对单张图片进行预处理：填充和缩放
+        """
+        padded_image = self._pad_and_scale(image, self.img_size)
+        return padded_image  
+
+    def _pad_and_scale(self, image, img_size):
+        """@yolo2.load_data.py InriaDataset pad_and_scale
+        注意和@utils.py中的pad_and_scale用了不同的resize函数
         
+        Args:
+            image: PIL Image
+            img_size: int
+
+        Returns:
+            PIL Image
+        """
+        # 使用与InriaDataset相同的pad_and_scale
+        w, h = image.size
+        if w == h:
+            padded_image = image
+        else:
+            dim_to_pad = 1 if w < h else 2
+            if dim_to_pad == 1:
+                padding = (h - w) / 2
+                padded_image = Image.new('RGB', (h, h), color=(127, 127, 127))
+                padded_image.paste(image, (int(padding), 0))
+            else:
+                padding = (w - h) / 2
+                padded_image = Image.new('RGB', (w, w), color=(127, 127, 127))
+                padded_image.paste(image, (0, int(padding)))
+        
+        # 使用与InriaDataset相同的resize方式
+        resize = transforms.Resize((img_size, img_size))
+        padded_image = resize(padded_image)
+        return padded_image
+    
     def detect(self, image, proprocess=True):
         """
         检测图像
         """
         # 预处理原始图片
         if isinstance(image, Image.Image):
-            processed_image = self.preprocess_single_image(image)
-            image_tensor = self.transform(processed_image).unsqueeze(0).to(self.device)
+            preprocessed_image = self.preprocess_image(image)
+            input_tensor = self.transform(preprocessed_image).unsqueeze(0).to(self.device)
         else:
-            image_tensor = image.to(self.device)
+            input_tensor = image.to(self.device)
         
         # 检测原始图片
         with torch.no_grad():
-            original_output = self.model(image_tensor)
+            original_output = self.model(input_tensor)
             detection_boxes = self.postprocess_detection_output(original_output, conf_thresh=0.5, nms_thresh=0.4)
             # [xs/w, ys/h, ws/w, hs/h, det_confs, cls_max_confs, cls_max_ids]
             bboxes = detection_boxes[:, [0, 1, 2, 3]]
@@ -196,11 +236,8 @@ class TCEGA:
         bboxes[:, 2] = center_x + width / 2  # x2
         bboxes[:, 3] = center_y + height / 2 # y2
 
-        return image_tensor, dict(bboxes=bboxes, labels=labels, scores=scores)
-            
-        output = self.model(image_tensor)
-        return output[0]
-    
+        return dict(bboxes=bboxes, labels=labels, scores=scores)
+
     def generate_adversarial_example(self, image):
         """
         生成对抗样本
@@ -212,22 +249,24 @@ class TCEGA:
         """
         # 预处理原始图片
         if isinstance(image, Image.Image):
-            processed_image = self.preprocess_single_image(image)
-            image_tensor = self.transform(processed_image).unsqueeze(0).to(self.device)
+            preprocessed_image = self.preprocess_image(image)
+            input_tensor = self.transform(preprocessed_image).unsqueeze(0).to(self.device)
         else:
-            image_tensor = image.to(self.device)
+            input_tensor = image.to(self.device)
         
         # 检测原始图片
         with torch.no_grad():
-            original_output = self.model(image_tensor)
+            original_output = self.model(input_tensor)
             detection_results = self.postprocess_detection_output(original_output, conf_thresh=0.5, nms_thresh=0.4)
             # [xs/w, ys/h, ws/w, hs/h, det_confs, cls_max_confs, cls_max_ids]
         dets = detection_results[:, [6, 0, 1, 2, 3]]
 
         if self.adv_patch is None:
             self.adv_patch = self.generate_adv_patch()
-        adv_image_tensor = self.apply_patch_to_image(image_tensor, self.adv_patch, dets)
-        return adv_image_tensor
+        adv_image_input_tensor = self.apply_patch_to_image(input_tensor, self.adv_patch, dets)
+
+        adversarial_image = unloader(adv_image_input_tensor[0].detach().cpu())
+        return adversarial_image
     
     def _generate_tcega_example(self, image):
         """生成TCEGA对抗样本"""
@@ -245,20 +284,7 @@ class TCEGA:
         # 实现patch-based攻击的具体逻辑
         pass
     
-    def preprocess_single_image(self, image):
-        """
-        对单张图片进行预处理：填充和缩放
-        """
-        # 使用与训练时相同的预处理逻辑
-        if hasattr(self, 'args') and hasattr(self.args, 'img_size'):
-            img_size = self.args.img_size
-        else:
-            img_size = 416  # 默认值
-            
-        # 填充和缩放图片
-        padded_image, _ = self.pad_and_scale(image, imgsize=img_size)
-        
-        return padded_image
+
     
     def postprocess_detection_output(self, output, conf_thresh=0.5, nms_thresh=0.4):
         all_boxes = utils.get_region_boxes_general(output, self.model, conf_thresh, self.kwargs['name'])
@@ -267,40 +293,6 @@ class TCEGA:
             boxes = utils.nms(boxes, nms_thresh) # [xs/w, ys/h, ws/w, hs/h, det_confs, cls_max_confs, cls_max_ids]
             boxes = boxes.detach().cpu().numpy()
             return boxes
-
-    def pad_and_scale(self, img, label=None, imgsize=416):
-        """
-        yolo2.load_data.py  InriaDataset  pad_and_scale
-        Args:
-            img:
-
-        Returns:
-
-        """
-        w, h = img.size
-        if w == h:
-            padded_img = img
-        else:
-            dim_to_pad = 1 if w < h else 2
-            if dim_to_pad == 1:
-                padding = (h - w) / 2
-                padded_img = Image.new('RGB', (h,h), color=(127,127,127))
-                padded_img.paste(img, (int(padding), 0))
-                if label is not None:
-                    for i in range(len(label)):
-                        label[i][:, [1]] = (label[i][:, [1]] * w + padding) / h
-                        label[i][:, [3]] = (label[i][:, [3]] * w / h)
-            else:
-                padding = (w - h) / 2
-                padded_img = Image.new('RGB', (w, w), color=(127,127,127))
-                padded_img.paste(img, (0, int(padding)))
-                if label is not None:
-                    for i in range(len(label)):
-                        label[i][:, [2]] = (label[i][:, [2]] * h + padding) / w
-                        label[i][:, [4]] = (label[i][:, [4]] * h / w)
-        resize = transforms.Resize((imgsize, imgsize))
-        padded_img = resize(padded_img)     #choose here
-        return padded_img, label
     
     def generate_adv_patch(self):
         """
