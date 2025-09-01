@@ -51,17 +51,17 @@ def test_single_image_inference():
     # 预处理check
     preprocessed_image = tcega.preprocess_image(test_image)
     preprocessed_image.save("preprocessed_image.png")
-    compare_processed_image_path = 'data/test_padded/crop_000001.png'
-    compared_processed_image = Image.open(compare_processed_image_path).convert('RGB')
-    print("preprocessed_image and compared_processed_image is the same: ", preprocessed_image == compared_processed_image)
-    exit(0)
+    
+    # for debug
+    # compare_processed_image_path = 'data/test_padded/crop_000001.png'
+    # compared_processed_image = Image.open(compare_processed_image_path).convert('RGB')
+    # print("preprocessed_image and compared_processed_image is the same: ", preprocessed_image == compared_processed_image)
+ 
 
     # 1. 原始图片检测
     print("\n1. 原始图片检测...")
     original_results = tcega.detect(test_image)
     print(f"   ✓ 原始图片检测完成，检测到 {len(original_results['bboxes'])} 个目标")
-
-
 
     # 打印检测结果详情
     if len(original_results['bboxes']) > 0:
@@ -73,14 +73,13 @@ def test_single_image_inference():
                     f"边界框=({bbox[0]:.1f}, {bbox[1]:.1f}, {bbox[2]:.1f}, {bbox[3]:.1f})")
         
 
-
     # 2. 对抗样本生成和检测
     print("\n2. 对抗样本生成和检测...")
     try:
         adversarial_image = tcega.generate_adversarial_example(test_image)
         
         # 对对抗样本进行检测
-        adv_img_tensor, adversarial_results = tcega.detect(adversarial_image)
+        adversarial_results = tcega.detect(adversarial_image)
         print(f"   ✓ 对抗样本检测完成，检测到 {len(adversarial_results['bboxes'])} 个目标")
         
         # 打印对抗样本检测结果详情
@@ -105,7 +104,7 @@ def test_single_image_inference():
     try:
         create_comparison_visualization(
             test_image, 
-            processed_image, 
+            preprocessed_image, 
             adversarial_image, 
             original_results, 
             adversarial_results
