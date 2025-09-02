@@ -13,21 +13,7 @@ unloader = transforms.ToPILImage()
 sys.path.append('.')
 
 from adversarial_attacks.physical import TCEGA
-
-def set_chinese_font():
-    # 设置matplotlib支持中文显示
-    import matplotlib
-    import matplotlib.font_manager as fm
-    chinese_fonts = [f.name for f in fm.fontManager.ttflist if 'CJK' in f.name or 'SC' in f.name]
-    print("可用中文字体:", chinese_fonts)
-
-    if 'SimHei' not in chinese_fonts:
-        chinese_fonts += ['SimHei']
-
-    matplotlib.rcParams['font.sans-serif'] = chinese_fonts # 设置中文字体
-    matplotlib.rcParams['axes.unicode_minus'] = False    # 正常显示负号
-
-    return chinese_fonts
+from adversarial_attacks.utils.vis_tools import set_chinese_font
 
 set_chinese_font()
 
@@ -37,7 +23,7 @@ def test_single_image_inference():
     print("初始化TCEGA模型...")
     
     # 初始化TCEGA模型
-    tcega = TCEGA( method='TCA',model_name='yolov2')
+    tcega = TCEGA(method='TCA',model_name='yolov2')
       
     # 测试图片
     test_image_path = 'data/coco2017_person/sub100/images/val2017/000000246883.jpg'
@@ -49,12 +35,6 @@ def test_single_image_inference():
     preprocessed_image = tcega.preprocess_image(test_image)
     preprocessed_image.save("preprocessed_image.png")
     
-    # for debug
-    # compare_processed_image_path = 'data/test_padded/crop_000001.png'
-    # compared_processed_image = Image.open(compare_processed_image_path).convert('RGB')
-    # print("preprocessed_image and compared_processed_image is the same: ", preprocessed_image == compared_processed_image)
- 
-
     # 1. 原始图片检测
     print("\n1. 原始图片检测...")
     original_results = tcega.detect(test_image)

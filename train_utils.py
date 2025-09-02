@@ -1,8 +1,7 @@
 import numpy as np
 from PIL import Image
-import torch
 import torch.nn.functional as F
-from adversarial_attacks.detectors.yolo2 import utils
+from adversarial_attacks.detectors.yolo2 import utils as yolo2_utils
 
 def truths_length(truths):
     for i in range(len(truths)):
@@ -15,14 +14,14 @@ def get_det_loss(darknet_model, p_img, lab_batch, args, kwargs):
     det_loss = p_img.new_zeros([])
     output = darknet_model(p_img)
     if kwargs['name'] == 'yolov2':
-        all_boxes_t = [utils.get_region_boxes_general(output, darknet_model, conf_thresh=args.conf_thresh, name=kwargs['name'])]
+        all_boxes_t = [yolo2_utils.get_region_boxes_general(output, darknet_model, conf_thresh=args.conf_thresh, name=kwargs['name'])]
     else:
         raise ValueError
 
     for all_boxes in all_boxes_t:
         for ii in range(p_img.shape[0]):
             if all_boxes[ii].shape[0] > 0:
-                iou_mat = utils.bbox_iou_mat(all_boxes[ii][..., :4], lab_batch[ii][:truths_length(lab_batch[ii]), 1:], False)
+                iou_mat = yolo2_utils.bbox_iou_mat(all_boxes[ii][..., :4], lab_batch[ii][:truths_length(lab_batch[ii]), 1:], False)
                 iou_max = iou_mat.max(1)[0]
                 idxs = iou_max > args.iou_thresh
                 det_confs = all_boxes[ii][idxs][:, 4]
