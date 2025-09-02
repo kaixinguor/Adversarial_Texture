@@ -22,57 +22,9 @@ from adversarial_attacks.detectors.load_models import load_models
 from .tps_grid_gen import TPSGridGen
 from .generator_dim import GAN_dis
 from .cfg import get_cfgs
+from .utils import random_crop
 
 unloader = transforms.ToPILImage()
-
-def random_crop(cloth, crop_size, pos=None, crop_type=None, fill=0):
-    """
-    @adversarial_texture/train_utils.py random_crop
-    """
-    w = cloth.shape[2]
-    h = cloth.shape[3]
-    if crop_size == 'equal':
-        crop_size = [w, h]
-    if crop_type is None:
-        d_w = w - crop_size[0]
-        d_h = h - crop_size[1]
-        if pos is None:
-            r_w = np.random.randint(d_w + 1)
-            r_h = np.random.randint(d_h + 1)
-        elif pos == 'center':
-            r_w, r_h = (np.array(cloth.shape[2:]) - np.array(crop_size)) // 2
-        else:
-            r_w = pos[0]
-            r_h = pos[1]
-
-        p1 = max(0, 0 - r_h)
-        p2 = max(0, r_h + crop_size[1] - h)
-        p3 = max(0, 0 - r_w)
-        p4 = max(0, r_w + crop_size[1] - w)
-        cloth_pad = F.pad(cloth, [p1, p2, p3, p4], value=fill)
-        patch = cloth_pad[:, :, r_w:r_w + crop_size[0], r_h:r_h + crop_size[1]]
-
-    elif crop_type == 'recursive':
-        if pos is None:
-            r_w = np.random.randint(w)
-            r_h = np.random.randint(h)
-        elif pos == 'center':
-            r_w, r_h = (np.array(cloth.shape[2:]) - np.array(crop_size)) // 2
-            if r_w < 0:
-                r_w = r_w % w
-            if r_h < 0:
-                r_h = r_h % h
-        else:
-            r_w = pos[0]
-            r_h = pos[1]
-        expand_w = (w + crop_size[0] - 1) // w + 1
-        expand_h = (h + crop_size[1] - 1) // h + 1
-        cloth_expanded = cloth.repeat([1, 1, expand_w, expand_h])
-        patch = cloth_expanded[:, :, r_w:r_w + crop_size[0], r_h:r_h + crop_size[1]]
-
-    else:
-        raise ValueError
-    return patch, r_w, r_h
 
 class TCEGA:
     """
@@ -512,9 +464,7 @@ class TCEGA:
         
         # 运行测试
         plt.figure(figsize=[15, 10])
-        prec, rec, ap, confs = self._test_model(test_loader, adv_cloth=self.test_cloth, 
-                                               gan=self.test_gan, z=self.test_z, 
-                                               type=self.test_type, conf_thresh=0.01, 
+        prec, rec, ap, confs = self._test_model(test_loader, conf_thresh=0.01, 
                                                old_fasion=self.kwargs['old_fasion'] if self.kwargs else True)
         
         # 保存结果

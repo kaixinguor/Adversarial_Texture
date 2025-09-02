@@ -19,7 +19,7 @@ except ImportError:
 
 from adversarial_attacks.detectors.yolo2 import load_data
 from adversarial_attacks.detectors.yolo2 import utils
-from train_utils import get_det_loss, random_crop
+from adversarial_attacks.physical.tcega.utils import get_det_loss, random_crop
 from adversarial_attacks.physical.tcega.cfg import get_cfgs
 from adversarial_attacks.physical.tcega.tps_grid_gen import TPSGridGen
 from adversarial_attacks.physical.tcega.generator_dim import GAN_dis
@@ -85,7 +85,7 @@ parser.add_argument('--save_freq', type=int, default=50, help='')
 pargs = parser.parse_args()
 
 
-args, kwargs = get_cfgs(pargs.net, pargs.method)
+args, kwargs = get_cfgs(pargs.net, pargs.method, mode='training')
 if pargs.epoch is not None:
     args.n_epochs = pargs.epoch
 if pargs.z_epoch is not None:
