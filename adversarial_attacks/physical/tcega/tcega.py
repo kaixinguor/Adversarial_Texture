@@ -136,7 +136,7 @@ class TCEGA:
             transforms.ToTensor(),
         ])
 
-        # self.adv_patch = self.generate_adv_patch()
+        self.adv_patch = None
     
     def _load_model(self, model_name):
         """加载模型"""
@@ -364,8 +364,7 @@ class TCEGA:
         
         return adv_patch
 
-    def _test_model(self, loader, adv_cloth=None, gan=None, z=None, type=None, 
-                   conf_thresh=0.5, nms_thresh=0.4, iou_thresh=0.5, num_of_samples=100,
+    def _test_model(self, loader, conf_thresh=0.5, nms_thresh=0.4, iou_thresh=0.5, num_of_samples=100,
                    old_fasion=True):
         """测试模型性能"""
         self.model.eval()
