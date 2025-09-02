@@ -26,7 +26,8 @@ def test_single_image_inference():
     tcega = TCEGA(method='TCA',model_name='yolov2')
       
     # 测试图片
-    test_image_path = 'dataset/coco2017_person/sub100/images/val2017/000000246883.jpg'
+    test_image_path = 'data/INRIAPerson/Test/pos/crop_000001.png'
+    # test_image_path = 'dataset/coco2017_person/sub100/images/val2017/000000201072.jpg'
     
     # 加载测试图片
     test_image = Image.open(test_image_path).convert('RGB')
@@ -48,7 +49,9 @@ def test_single_image_inference():
                                                         original_results['labels'])):
             print(f"   目标 {i+1}: 置信度={score[0]:.3f}, 类别={int(label[0])}, "
                     f"边界框=({bbox[0]:.1f}, {bbox[1]:.1f}, {bbox[2]:.1f}, {bbox[3]:.1f})")
-        
+    
+    # from adversarial_attacks.detectors.yolo2.utils import plot_boxes_cv2
+    # plot_boxes_cv2(np.array(preprocessed_image), debug_target, savename='original_results.png')
 
     # 2. 对抗样本生成和检测
     print("\n2. 对抗样本生成和检测...")
@@ -128,17 +131,18 @@ def create_comparison_visualization(original_image, processed_image, adversarial
         scores = original_detections['scores']
         labels = original_detections['labels']
         for i, (bbox, score, label) in enumerate(zip(bboxes, scores, labels)):
+            # TCEGA的detect方法已经返回角点格式 [x1, y1, x2, y2]
             x1, y1, x2, y2 = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
+            
             # 确保坐标在图片范围内
             x1, y1 = max(0, x1), max(0, y1)
             x2, y2 = min(orig_img_with_boxes.shape[1], x2), min(orig_img_with_boxes.shape[0], y2)
             
             if x2 > x1 and y2 > y1:
-                # 绘制边界框
-                orig_img_with_boxes[y1:y2, x1:x1+3] = [0, 255, 0]  # 左边（绿色）
-                orig_img_with_boxes[y1:y2, x2-3:x2] = [0, 255, 0]  # 右边（绿色）
-                orig_img_with_boxes[y1:y1+3, x1:x2] = [0, 255, 0]  # 上边（绿色）
-                orig_img_with_boxes[y2-3:y2, x1:x2] = [0, 255, 0]  # 下边（绿色）
+                # 使用matplotlib绘制边界框，而不是直接修改像素
+                rect = plt.Rectangle((x1, y1), x2-x1, y2-y1, 
+                                   linewidth=2, edgecolor='green', facecolor='none')
+                plt.gca().add_patch(rect)
                 
                 # 获取类别名称
                 class_id = int(label[0])
@@ -162,17 +166,18 @@ def create_comparison_visualization(original_image, processed_image, adversarial
         scores = adversarial_detections['scores']
         labels = adversarial_detections['labels']
         for i, (bbox, score, label) in enumerate(zip(bboxes, scores, labels)):
+            # TCEGA的detect方法已经返回角点格式 [x1, y1, x2, y2]
             x1, y1, x2, y2 = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
+            
             # 确保坐标在图片范围内
             x1, y1 = max(0, x1), max(0, y1)
             x2, y2 = min(adv_img_with_boxes.shape[1], x2), min(adv_img_with_boxes.shape[0], y2)
             
             if x2 > x1 and y2 > y1:
-                # 绘制边界框
-                adv_img_with_boxes[y1:y2, x1:x1+3] = [255, 0, 0]  # 左边（红色）
-                adv_img_with_boxes[y1:y2, x2-3:x2] = [255, 0, 0]  # 右边（红色）
-                adv_img_with_boxes[y1:y1+3, x1:x2] = [255, 0, 0]  # 上边（红色）
-                adv_img_with_boxes[y2-3:y2, x1:x2] = [255, 0, 0]  # 下边（红色）
+                # 使用matplotlib绘制边界框，而不是直接修改像素
+                rect = plt.Rectangle((x1, y1), x2-x1, y2-y1, 
+                                   linewidth=2, edgecolor='red', facecolor='none')
+                plt.gca().add_patch(rect)
                 
                 # 获取类别名称
                 class_id = int(label[0])

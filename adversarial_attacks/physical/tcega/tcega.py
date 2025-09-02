@@ -197,21 +197,20 @@ class TCEGA:
         labels = boxes7[:, [6]]
         scores = boxes7[:, [4]]
 
-        bboxes[:, [0]] = bboxes[:, [0]] * image.size[0]  # center_x * width
-        bboxes[:, [1]] = bboxes[:, [1]] * image.size[1]  # center_y * height  
-        bboxes[:, [2]] = bboxes[:, [2]] * image.size[0]  # width * width
-        bboxes[:, [3]] = bboxes[:, [3]] * image.size[1]  # height * height
+        # 使用与yolo2.utils.py plot_boxes_cv2一致的坐标转换方法
+        img_width, img_height = preprocessed_image.size[0], preprocessed_image.size[1]
 
-        # 从中心格式转换为角点格式
-        center_x = bboxes[:, 0]
-        center_y = bboxes[:, 1]
-        width = bboxes[:, 2]
-        height = bboxes[:, 3]
-
-        bboxes[:, 0] = center_x - width / 2   # x1
-        bboxes[:, 1] = center_y - height / 2 # y1
-        bboxes[:, 2] = center_x + width / 2  # x2
-        bboxes[:, 3] = center_y + height / 2 # y2
+        for i in range(len(bboxes)):
+            box = bboxes[i]
+            x1 = int(round((box[0] - box[2] / 2.0) * img_width))
+            y1 = int(round((box[1] - box[3] / 2.0) * img_height))
+            x2 = int(round((box[0] + box[2] / 2.0) * img_width))
+            y2 = int(round((box[1] + box[3] / 2.0) * img_height))
+            
+            bboxes[i, 0] = x1
+            bboxes[i, 1] = y1
+            bboxes[i, 2] = x2
+            bboxes[i, 3] = y2
 
         return dict(bboxes=bboxes, labels=labels, scores=scores)
 
@@ -235,7 +234,7 @@ class TCEGA:
         with torch.no_grad():
             output = self.model(input_tensor)
             # [xs/w, ys/h, ws/w, hs/h, det_confs, cls_max_confs, cls_max_ids]
-            boxes7 = self._postprocess_detection_output(output, conf_thresh=0.5, nms_thresh=0.4)
+            boxes7 = self._postprocess_detection_output(output, conf_thresh=self.conf_thresh, nms_thresh=self.nms_thresh)
         
         if self.adv_patch is None:
             self.adv_patch = self.generate_adv_patch()
