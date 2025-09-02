@@ -19,13 +19,13 @@ try:
 except ImportError:
     pass
 
-from yolo2 import load_data
-from yolo2 import utils
-from utils import *
+from adversarial_attacks.detectors.yolo2 import load_data
+from adversarial_attacks.detectors.yolo2 import utils
+from train_utils import *
 from cfg import get_cfgs
-from tps_grid_gen import TPSGridGen
-from load_models import load_models
-from generator_dim import GAN_dis
+from adversarial_attacks.physical.adversarial_texture.tps_grid_gen import TPSGridGen
+from adversarial_attacks.detectors.load_models import load_models
+from adversarial_attacks.physical.adversarial_texture.generator_dim import GAN_dis
 
 # 全局变量用于保存训练状态
 training_state = {

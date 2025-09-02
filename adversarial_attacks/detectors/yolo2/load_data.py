@@ -14,7 +14,7 @@ import torch.nn.functional as F
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
-from median_pool import MedianPool2d
+from .median_pool import MedianPool2d
 
 # print('starting test read')
 # im = Image.open('data/horse.jpg').convert('RGB')

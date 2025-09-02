@@ -12,7 +12,7 @@ unloader = transforms.ToPILImage()
 # 添加当前目录到Python路径
 sys.path.append('.')
 
-from tcega import TCEGA
+from adversarial_attacks.physical import TCEGA
 
 def set_chinese_font():
     # 设置matplotlib支持中文显示

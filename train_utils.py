@@ -2,7 +2,7 @@ import numpy as np
 from PIL import Image
 import torch
 import torch.nn.functional as F
-from yolo2 import utils
+from adversarial_attacks.detectors.yolo2 import utils
 
 def truths_length(truths):
     for i in range(len(truths)):
@@ -88,7 +88,7 @@ def pad_and_scale(img, lab=None, size=(416, 416), color=(127, 127, 127)):
 def random_crop(cloth, crop_size, pos=None, crop_type=None, fill=0):
     w = cloth.shape[2]
     h = cloth.shape[3]
-    if crop_size is 'equal':
+    if crop_size == 'equal':
         crop_size = [w, h]
     if crop_type is None:
         d_w = w - crop_size[0]

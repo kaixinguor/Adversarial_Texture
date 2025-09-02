@@ -2,7 +2,7 @@
 """
 TCEGA类评估测试
 """
-from tcega import TCEGA
+from adversarial_attacks.physical import TCEGA
 
 def set_random_seed():
 
@@ -21,12 +21,12 @@ def test_evaluate(method='TCEGA',prepare_data=False):
  
     tcega = TCEGA(method=method)
     
-    # img_ori_dir = './data/INRIAPerson/Test/pos'
-    img_ori_dir = './data/coco2017_person/sub100/images/val2017'
-    
+    img_ori_dir = './data/INRIAPerson/Test/pos'
+    # img_ori_dir = './data/coco2017_person/sub100/images/val2017'
+
     tcega.run_evaluation(img_ori_dir=img_ori_dir,
-                         prepare_data=prepare_data,
                          save_dir=f'./test_results_reproduce/{method}', 
+                         prepare_data=prepare_data
                          )
 
 if __name__ == "__main__":
@@ -40,4 +40,4 @@ if __name__ == "__main__":
     #     else:
     #         test_evaluate(method, prepare_data=False)
     set_random_seed()
-    test_evaluate('TCA', prepare_data=True)
+    test_evaluate('TCA', prepare_data=False)
