@@ -29,7 +29,8 @@ def test_single_image_inference():
     # test_image_path = 'data/INRIAPerson/Test/pos/crop_000001.png'
     # test_image_path = 'dataset/coco2017_person/sub100/images/val2017/000000005001.jpg'
     # test_image_path = 'dataset/coco2017_person/sub100/images/val2017/000000201072.jpg'
-    test_image_path = 'dataset/coco2017_person/sub100/images/val2017/000000312489.jpg'
+    # test_image_path = 'dataset/coco2017_person/sub100/images/val2017/000000312489.jpg'
+    test_image_path = 'dataset/coco2017_car/sub100/images/val2017/000000315187.jpg'
     
     # 加载测试图片
     test_image = Image.open(test_image_path).convert('RGB')
