@@ -15,7 +15,7 @@ import torch.nn.functional as F
 from torchvision import transforms
 
 from yolo2 import load_data
-from yolo2 import utils
+from yolo2 import utils as yolo2_utils
 from tps_grid_gen import TPSGridGen
 from generator_dim import GAN_dis
 
@@ -195,7 +195,7 @@ class TCEGA:
             
         # 加载类别名称
         if class_mapping is None:
-            self.class_names = utils.load_class_names('./data/coco.names')
+            self.class_names = yolo2_utils.load_class_names('./data/coco.names')
         else:
             self.class_names = class_mapping
             
@@ -420,9 +420,9 @@ class TCEGA:
     
     def _postprocess_detection_output(self, output, conf_thresh=0.5, nms_thresh=0.4):
 
-        all_boxes = utils.get_region_boxes_general(output, self.model, conf_thresh, self.kwargs['name'])
+        all_boxes = yolo2_utils.get_region_boxes_general(output, self.model, conf_thresh, self.kwargs['name'])
         boxes7 = all_boxes[0]
-        boxes7 = utils.nms(boxes7, self.nms_thresh) # [xs/w, ys/h, ws/w, hs/h, det_confs, cls_max_confs, cls_max_ids]
+        boxes7 = yolo2_utils.nms(boxes7, self.nms_thresh) # [xs/w, ys/h, ws/w, hs/h, det_confs, cls_max_confs, cls_max_ids]
         return boxes7
     
     def generate_adv_patch(self):
@@ -507,12 +507,12 @@ class TCEGA:
                     data = self.patch_applier(data, adv_batch_t)
                 
                 output = self.model(data)
-                all_boxes = utils.get_region_boxes_general(output, self.model, 
+                all_boxes = yolo2_utils.get_region_boxes_general(output, self.model, 
                                                         conf_thresh, self.kwargs['name'] if self.kwargs else 'yolov2')
                 
                 for i in range(len(all_boxes)):
                     boxes = all_boxes[i]
-                    boxes = utils.nms(boxes, nms_thresh)
+                    boxes = yolo2_utils.nms(boxes, nms_thresh)
                     truths = target[i].view(-1, 5)
                     truths = label_filter(truths, labels=[0])
                     num_gts = truths_length(truths)
@@ -526,7 +526,7 @@ class TCEGA:
                             best_index = 0
 
                             for ib, box_gt in enumerate(truths):
-                                iou = utils.bbox_iou(box_gt, boxes[j], x1y1x2y2=False)
+                                iou = yolo2_utils.bbox_iou(box_gt, boxes[j], x1y1x2y2=False)
                                 if iou > best_iou:
                                     best_iou = iou
                                     best_index = ib
@@ -572,11 +572,10 @@ class TCEGA:
 
         return precision, recall, avg, confs
 
-    def prepare_data(self):
+    def prepare_data(self, img_ori_dir):
 
         conf_thresh = 0.5
         nms_thresh = 0.4
-        img_ori_dir = './data/INRIAPerson/Test/pos'
         img_dir = './data/test_padded'
         lab_dir = './data/test_lab_%s' % self.kwargs['name']
         data_nl = load_data.InriaDataset(img_ori_dir, None, self.kwargs['max_lab'], self.args.img_size, shuffle=False)
@@ -592,10 +591,10 @@ class TCEGA:
             for batch_idx, (data, labs) in tqdm(enumerate(loader_nl), total=len(loader_nl)):
                 data = data.to(self.device)
                 output = self.model(data)
-                all_boxes = utils.get_region_boxes_general(output, self.model, conf_thresh, self.kwargs['name'])
+                all_boxes = yolo2_utils.get_region_boxes_general(output, self.model, conf_thresh, self.kwargs['name'])
                 for i in range(data.size(0)):
                     boxes = all_boxes[i]
-                    boxes = utils.nms(boxes, nms_thresh)
+                    boxes = yolo2_utils.nms(boxes, nms_thresh)
                     new_boxes = boxes[:, [6, 0, 1, 2, 3]]
                     new_boxes = new_boxes[new_boxes[:, 0] == 0]
                     new_boxes = new_boxes.detach().cpu().numpy()
@@ -608,7 +607,7 @@ class TCEGA:
                         img.save(save_dir)
         print('preparing done')
 
-    def run_evaluation(self, prepare_data=False, save_dir='./test_results'):
+    def run_evaluation(self, img_ori_dir, prepare_data=False, save_dir='./test_results'):
         """运行完整的评估流程"""
         if not hasattr(self, 'test_cloth'):
             raise ValueError("Please load pretrained attack model first using load_pretrained_attack()")
@@ -619,7 +618,7 @@ class TCEGA:
         save_path = os.path.join(save_dir, f'yolov2_{self.method}')
 
         if prepare_data:
-            self.prepare_data()
+            self.prepare_data(img_ori_dir)
         
         # 创建测试数据加载器
         img_dir_test = './data/test_padded'

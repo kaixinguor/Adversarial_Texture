@@ -1,26 +1,11 @@
 #!/usr/bin/env python3
 """
-TCEGA类基本功能测试
+TCEGA类评估测试
 """
+from tcega import TCEGA
 
-import os
-import sys
-import torch
-
-    
-def test_evaluate(method='TCEGA',prepare_data=False):
-    """测试评估功能"""
-    print(f"\n评估{method}方法...")
- 
-    # from tcega import TCEGA
-    from torchart.physical.tcega import TCEGA
-    
-    tcega = TCEGA(method=method)
-    
-    tcega.run_evaluation(save_dir=f'./test_results_reproduce/{method}', prepare_data=prepare_data)
-    
 def set_random_seed():
-    
+
     # 关闭随机性
     import torch
     import numpy as np
@@ -29,6 +14,20 @@ def set_random_seed():
     torch.backends.cudnn.deterministic = True  # 确保CuDNN使用确定性算法
     torch.backends.cudnn.benchmark = False     # 关闭自动优化（避免非确定性）
     # torch.use_deterministic_algorithms(True)   # 强制使用确定性算法（PyTorch 1.7+）
+
+def test_evaluate(method='TCEGA',prepare_data=False):
+    """测试评估功能"""
+    print(f"\n评估{method}方法...")
+ 
+    tcega = TCEGA(method=method)
+    
+    # img_ori_dir = './data/INRIAPerson/Test/pos'
+    img_ori_dir = './data/coco2017_person/sub100/images/val2017'
+    
+    tcega.run_evaluation(img_ori_dir=img_ori_dir,
+                         prepare_data=prepare_data,
+                         save_dir=f'./test_results_reproduce/{method}', 
+                         )
 
 if __name__ == "__main__":
     # test_basic_function()

@@ -12,8 +12,7 @@ unloader = transforms.ToPILImage()
 # 添加当前目录到Python路径
 sys.path.append('.')
 
-# from tcega import TCEGA
-from torchart.physical.tcega import TCEGA
+from tcega import TCEGA
 
 def set_chinese_font():
     # 设置matplotlib支持中文显示
@@ -38,10 +37,10 @@ def test_single_image_inference():
     print("初始化TCEGA模型...")
     
     # 初始化TCEGA模型
-    tcega = TCEGA( method='TCEGA',model_name='yolov2')
+    tcega = TCEGA( method='TCA',model_name='yolov2')
       
     # 测试图片
-    test_image_path = 'data/INRIAPerson/Test/pos/crop_000001.png'
+    test_image_path = 'data/coco2017_person/sub100/images/val2017/000000246883.jpg'
     
     # 加载测试图片
     test_image = Image.open(test_image_path).convert('RGB')
