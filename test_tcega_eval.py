@@ -5,9 +5,7 @@ TCEGA类评估基准测试
 import os
 import torch
 import numpy as np
-from torchvision import transforms
 from tqdm import tqdm
-from easydict import EasyDict
 from scipy.interpolate import interp1d
 
 import matplotlib
@@ -18,29 +16,7 @@ from adversarial_attacks.physical import TCEGA
 from adversarial_attacks.utils.aux_tool import set_random_seed
 from adversarial_attacks.detectors.yolo2 import load_data
 from adversarial_attacks.detectors.yolo2 import utils as yolo2_utils
-
-unloader = transforms.ToPILImage()
-
-# 辅助函数
-def label_filter(truths, labels=None):
-    """过滤标签"""
-    if labels is not None:
-        new_truths = truths.new(truths.shape).fill_(-1)
-        c = 0
-        for t in truths:
-            if t[0].item() in labels:
-                new_truths[c] = t
-                c = c + 1
-        return new_truths
-    return truths
-
-
-def truths_length(truths):
-    """计算真实标签的长度"""
-    for i in range(50):
-        if truths[i][1] == -1:
-            return i
-    return len(truths)
+from adversarial_attacks.physical.tcega.utils import label_filter, truths_length, unloader
 
 def prepare_data(attacker,img_ori_dir):
 

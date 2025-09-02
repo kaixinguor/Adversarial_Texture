@@ -1,12 +1,31 @@
 import numpy as np
 import torch.nn.functional as F
 from adversarial_attacks.detectors.yolo2 import utils as yolo2_utils
+from torchvision import transforms
 
+
+unloader = transforms.ToPILImage()
+
+
+# 辅助函数
 def truths_length(truths):
     for i in range(len(truths)):
         if truths[i][1] == -1:
             return i
     return len(truths)
+
+
+def label_filter(truths, labels=None):
+    """过滤标签"""
+    if labels is not None:
+        new_truths = truths.new(truths.shape).fill_(-1)
+        c = 0
+        for t in truths:
+            if t[0].item() in labels:
+                new_truths[c] = t
+                c = c + 1
+        return new_truths
+    return truths
 
 
 def get_det_loss(darknet_model, p_img, lab_batch, args, kwargs):
