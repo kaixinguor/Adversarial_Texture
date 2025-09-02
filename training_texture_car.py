@@ -106,7 +106,7 @@ class_names = utils.load_class_names('./data/coco.names')
 img_dir_train = 'dataset/coco2017_car/train1000/images/train2017'
 lab_dir_train = 'dataset/coco2017_car/train1000/yolo_labels/train2017'
 
-train_data = load_data.InriaDataset(img_dir_train, lab_dir_train, kwargs['max_lab'], args.img_size, shuffle=True)
+train_data = load_data.InriaDataset(img_dir_train, lab_dir_train, kwargs['max_lab'], args.img_size, shuffle=True, target_label=2)
 train_loader = torch.utils.data.DataLoader(train_data, batch_size=kwargs['batch_size'], shuffle=True, num_workers=10)
 target_func = lambda obj, cls: obj
 patch_applier = load_data.PatchApplier().to(device)

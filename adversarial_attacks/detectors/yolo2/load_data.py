@@ -16,6 +16,8 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 from .median_pool import MedianPool2d
 
+from adversarial_attacks.physical.tcega.utils import label_filter, truths_length
+
 # print('starting test read')
 # im = Image.open('data/horse.jpg').convert('RGB')
 # print('img read!')
@@ -398,7 +400,7 @@ class InriaDataset(Dataset):
 
     """
 
-    def __init__(self, img_dir, lab_dir, max_lab, imgsize, shuffle=True):
+    def __init__(self, img_dir, lab_dir, max_lab, imgsize, shuffle=True, target_label=None):
         n_png_images = len(fnmatch.filter(os.listdir(img_dir), '*.png'))
         n_jpg_images = len(fnmatch.filter(os.listdir(img_dir), '*.jpg'))
         n_images = n_png_images + n_jpg_images
@@ -423,6 +425,7 @@ class InriaDataset(Dataset):
             lab_path = [os.path.join(ld, img_name).replace('.jpg', '.txt').replace('.png', '.txt') for ld in lab_dir]
             self.lab_paths.append(lab_path)
         self.max_n_labels = max_lab
+        self.target_label = target_label
 
     def __len__(self):
         return self.len
@@ -442,6 +445,13 @@ class InriaDataset(Dataset):
                     lb = torch.from_numpy(np.loadtxt(lp)).float()
                     if lb.dim() == 1:
                         lb = lb.unsqueeze(0)
+
+                    # add label filter to truth
+                    if self.target_label is not None:
+                        truths = label_filter(lb, labels=[self.target_label])
+                        num_gts = truths_length(truths)
+                        truths = truths[:num_gts]
+                        lb = truths
                     label.append(lb)
                 else:
                     label.append(torch.ones([1, 5]).float())
