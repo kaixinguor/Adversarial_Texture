@@ -1,3 +1,3 @@
-from .tcega import TCEGA
+from .tcega.tcega import TCEGA
 
 __all__ = ['TCEGA']

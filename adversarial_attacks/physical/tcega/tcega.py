@@ -16,11 +16,11 @@ import torch.nn.functional as F
 from torchvision import transforms
 
 # 临时使用yolov2，后续扩展检测器后再整理
-from ..detectors.yolo2 import load_data
-from ..detectors.yolo2 import utils as yolo2_utils
-from ..detectors.load_models import load_models
-from ..physical.adversarial_texture.tps_grid_gen import TPSGridGen
-from ..physical.adversarial_texture.generator_dim import GAN_dis
+from adversarial_attacks.detectors.yolo2 import load_data
+from adversarial_attacks.detectors.yolo2 import utils as yolo2_utils
+from adversarial_attacks.detectors.load_models import load_models
+from .tps_grid_gen import TPSGridGen
+from .generator_dim import GAN_dis
 
 unloader = transforms.ToPILImage()
 

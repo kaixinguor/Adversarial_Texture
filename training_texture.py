@@ -7,10 +7,8 @@ from datetime import datetime
 from tqdm import tqdm
 import time
 import argparse
-import signal
 import sys
-import pickle
-import json
+import numpy as np
 
 # 添加PyTorch 2.6兼容性支持
 try:
@@ -21,11 +19,11 @@ except ImportError:
 
 from adversarial_attacks.detectors.yolo2 import load_data
 from adversarial_attacks.detectors.yolo2 import utils
-from train_utils import *
-from cfg import get_cfgs
-from adversarial_attacks.physical.adversarial_texture.tps_grid_gen import TPSGridGen
+from train_utils import get_det_loss, random_crop
+from adversarial_attacks.physical.tcega.cfg import get_cfgs
+from adversarial_attacks.physical.tcega.tps_grid_gen import TPSGridGen
+from adversarial_attacks.physical.tcega.generator_dim import GAN_dis
 from adversarial_attacks.detectors.load_models import load_models
-from adversarial_attacks.physical.adversarial_texture.generator_dim import GAN_dis
 
 # 全局变量用于保存训练状态
 training_state = {
