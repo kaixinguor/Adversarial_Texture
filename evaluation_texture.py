@@ -12,6 +12,18 @@ import matplotlib.pyplot as plt
 import fnmatch
 import re
 
+# 关闭随机性
+
+def set_random_seed(seed=42):
+    import numpy as np
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True  # 确保CuDNN使用确定性算法
+    torch.backends.cudnn.benchmark = False     # 关闭自动优化（避免非确定性）
+    # torch.use_deterministic_algorithms(True)   # 强制使用确定性算法（PyTorch 1.7+）
+
+set_random_seed()
+
 from yolo2 import load_data
 from yolo2 import utils
 from utils import *
@@ -140,6 +152,7 @@ def test(model, loader, adv_cloth=None, gan=None, z=None, type=None, conf_thresh
         positives = []
         for batch_idx, (data, target) in tqdm(enumerate(loader), total=batch_num, position=0):
             data = data.to(device)
+            # set_random_seed()
             if type == 'gan':
                 z = torch.randn(1, 128, *args.z_size, device=device)
                 cloth = gan.generate(z)

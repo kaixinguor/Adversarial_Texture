@@ -19,12 +19,15 @@ All the codes are tested in the following environment:
 
 #### 2. Preparation
 You need to download the yolov2 weights by
+<del>https://pjreddie.com/media/files/yolov2.weights（此链接已失效）</del> 
 ```
-wget -P ./data/models/ https://pjreddie.com/media/files/yolov2.weights
+wget -P ./data/models/  https://data.pjreddie.com/files/yolov2.weights
 ```
+ 
+
 and prepare the Inria Dataset
 ```
-curl ftp://ftp.inrialpes.fr/pub/lear/douze/data/INRIAPerson.tar -o inria.tar
+curl -C - ftp://ftp.inrialpes.fr/pub/lear/douze/data/INRIAPerson.tar -o inria.tar
 tar xf inria.tar
 mv INRIAPerson ./data
 ```
@@ -70,6 +73,10 @@ We provide the command to train for each method.
 ```
 $METHOD_NAME can be replaced to "RCA", "TCA", EGA" or "TCEGA" when one use different methods. The patterns and checkpoints will be saved in directory "results/".
 
+Training log could be visualized by
+```
+tensorboard --logdir ./training_results/runs/ --port 6006
+```
 #### 5. Patterns
 We provide the TCEGA patterns of yolov2, yolov3, FasterRCNN, and MaskRCNN for physical print in ./print_patterns/. Each file has a size of 2370 * 1185, where the recurrent unit has a size of 324 * 324.
 
