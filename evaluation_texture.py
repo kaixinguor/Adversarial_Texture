@@ -25,12 +25,12 @@ def set_random_seed(seed=42):
 set_random_seed()
 
 from adversarial_attacks.detectors.yolo2 import load_data
-from adversarial_attacks.detectors.yolo2 import utils
+from adversarial_attacks.detectors.yolo2 import utils as yolo2_utils
 from train_utils import *
-from cfg import get_cfgs
-from adversarial_attacks.physical.adversarial_texture.tps_grid_gen import TPSGridGen
+from adversarial_attacks.physical.tcega.cfg import get_cfgs
+from adversarial_attacks.physical.tcega.tps_grid_gen import TPSGridGen
 from adversarial_attacks.detectors.load_models import load_models
-from adversarial_attacks.physical.adversarial_texture.generator_dim import GAN_dis
+from adversarial_attacks.physical.tcega.generator_dim import GAN_dis
 
 parser = argparse.ArgumentParser(description='PyTorch Training')
 parser.add_argument('--net', default='yolov2', help='target net name')
@@ -58,7 +58,7 @@ device = torch.device(pargs.device)
 darknet_model = load_models(**kwargs)
 darknet_model = darknet_model.eval().to(device)
 
-class_names = utils.load_class_names('./data/coco.names')
+class_names = yolo2_utils.load_class_names('./data/coco.names')
 
 target_func = lambda obj, cls: obj
 patch_applier = load_data.PatchApplier().to(device)
@@ -98,10 +98,10 @@ if pargs.prepare_data:
         for batch_idx, (data, labs) in tqdm(enumerate(loader_nl), total=len(loader_nl)):
             data = data.to(device)
             output = darknet_model(data)
-            all_boxes = utils.get_region_boxes_general(output, darknet_model, conf_thresh, kwargs['name'])
+            all_boxes = yolo2_utils.get_region_boxes_general(output, darknet_model, conf_thresh, kwargs['name'])
             for i in range(data.size(0)):
                 boxes = all_boxes[i]
-                boxes = utils.nms(boxes, nms_thresh)
+                boxes = yolo2_utils.nms(boxes, nms_thresh)
                 new_boxes = boxes[:, [6, 0, 1, 2, 3]]
                 new_boxes = new_boxes[new_boxes[:, 0] == 0]
                 new_boxes = new_boxes.detach().cpu().numpy()
@@ -172,10 +172,10 @@ def test(model, loader, adv_cloth=None, gan=None, z=None, type=None, conf_thresh
                                                 pooling=args.pooling, old_fasion=old_fasion)
                 data = patch_applier(data, adv_batch_t)
             output = model(data)
-            all_boxes = utils.get_region_boxes_general(output, model, conf_thresh, kwargs['name'])
+            all_boxes = yolo2_utils.get_region_boxes_general(output, model, conf_thresh, kwargs['name'])
             for i in range(len(all_boxes)):
                 boxes = all_boxes[i]
-                boxes = utils.nms(boxes, nms_thresh)
+                boxes = yolo2_utils.nms(boxes, nms_thresh)
                 truths = target[i].view(-1, 5)
                 truths = label_filter(truths, labels=[0])
                 num_gts = truths_length(truths)
@@ -188,7 +188,7 @@ def test(model, loader, adv_cloth=None, gan=None, z=None, type=None, conf_thresh
                         best_index = 0
 
                         for ib, box_gt in enumerate(truths):
-                            iou = utils.bbox_iou(box_gt, boxes[j], x1y1x2y2=False)
+                            iou = yolo2_utils.bbox_iou(box_gt, boxes[j], x1y1x2y2=False)
                             if iou > best_iou:
                                 best_iou = iou
                                 best_index = ib

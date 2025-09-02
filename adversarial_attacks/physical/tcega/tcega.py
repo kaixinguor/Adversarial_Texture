@@ -21,12 +21,13 @@ from adversarial_attacks.detectors.yolo2 import utils as yolo2_utils
 from adversarial_attacks.detectors.load_models import load_models
 from .tps_grid_gen import TPSGridGen
 from .generator_dim import GAN_dis
+from .cfg import get_cfgs
 
 unloader = transforms.ToPILImage()
 
 def random_crop(cloth, crop_size, pos=None, crop_type=None, fill=0):
     """
-    @adversarial_texture/utils.py random_crop
+    @adversarial_texture/train_utils.py random_crop
     """
     w = cloth.shape[2]
     h = cloth.shape[3]
@@ -73,82 +74,6 @@ def random_crop(cloth, crop_size, pos=None, crop_type=None, fill=0):
         raise ValueError
     return patch, r_w, r_h
 
-targs_RCA = {
-    'pos': None,
-    'crop_size': [150] * 2,
-    'crop_type': None,
-    'pixel_size': [1] * 2,
-    'pooling': 'gauss',
-    'img_size': 416,
-    'batch_size': 8,
-}
-
-targs_TCA = {
-    'pos': None,
-    'crop_size': [150] * 2,
-    'crop_type': 'recursive',
-    'pixel_size': [1] * 2,
-    'pooling': 'gauss',
-
-    'img_size': 416,
-    'batch_size': 8,
-}
-
-targs_EGA = {
-    'z_size': [9] * 2,
-    'pos': 'center',
-    'crop_size': 'equal',
-    'crop_type': None,
-    'pixel_size': [1] * 2,
-    'pooling': 'median',
-    'img_size': 416,
-    'batch_size': 8,
-}
-
-targs_TCEGA = {
-    'z_pos': None,
-    'z_crop_size': [9] * 2,
-    'z_crop_type': 'recursive',
-    'pos': 'center',
-    'crop_size': 'equal',
-    'crop_type': None,
-    'pixel_size': [1] * 2,
-    'pooling': 'median',
-    'img_size': 416,
-    'batch_size': 8,
-}
-
-v2kwargs={
-    'name': 'yolov2',
-    'cfgfile': "./data/models/yolov2.cfg",
-    'weightfile': "./data/models/yolov2.weights",
-    'max_lab': 15,
-    'batch_size': 8,
-    'old_fasion': True,
-}
-
-kwargs_dict = {
-    'yolov2': v2kwargs,
-}
-
-targs_dict = {
-    'RCA': targs_RCA,
-    'TCA': targs_TCA,
-    'EGA': targs_EGA,
-    'TCEGA': targs_TCEGA
-    }
-
-def get_cfgs(net_name, method_name):
-    """
-    @adversarial_texture/cfg.py get_cfgs
-    """
-    # mode == 'test'
-    args = targs_dict[method_name]
-    args = EasyDict(args)
-  
-    kwargs = kwargs_dict[net_name]
-    return args, kwargs
-
 class TCEGA:
     """
     目标检测TCEGA对抗攻击工具类
@@ -169,7 +94,6 @@ class TCEGA:
                  model_name='yolov2',
                  class_mapping=None, 
                  device=None,
-                 img_size=416,
                  conf_thresh=0.5, # 检测后处理参数
                  nms_thresh=0.4, # 检测后处理参数
                  args=None,
@@ -179,7 +103,6 @@ class TCEGA:
         self.method = method
         self.device = torch.device(device) if device else torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         
-        self.img_size = img_size
         self.conf_thresh = conf_thresh
         self.nms_thresh = nms_thresh
 
@@ -213,7 +136,7 @@ class TCEGA:
             transforms.ToTensor(),
         ])
 
-        self.adv_patch = self.generate_adv_patch()
+        # self.adv_patch = self.generate_adv_patch()
     
     def _load_model(self, model_name):
         """加载模型"""
@@ -298,10 +221,10 @@ class TCEGA:
         """
         对单张图片进行预处理：填充和缩放
         """
-        padded_image = self._pad_and_scale(image, self.img_size)
+        padded_image = self._pad_and_scale(image, self.args.img_size)
         return padded_image  
     
-    def detect(self, image, proprocess=True):
+    def detect(self, image):
         """
         检测图像
         """
@@ -368,7 +291,7 @@ class TCEGA:
         # 使用patch transformer处理patch
         target = boxes7[:, [6, 0, 1, 2, 3]]
         target = target.unsqueeze(0).to(self.device)
-        adv_batch_t = self.patch_transformer(self.adv_patch, target, self.img_size, 
+        adv_batch_t = self.patch_transformer(self.adv_patch, target, self.args.img_size, 
                                            do_rotate=True, rand_loc=False,
                                            pooling=self.args.pooling, 
                                            old_fasion=self.kwargs.get('old_fasion', True))
@@ -441,298 +364,6 @@ class TCEGA:
         
         return adv_patch
 
-    def tcega_attack(self, images, labels=[]):
-        """
-        TCEGA对抗攻击实现
-
-        参数:
-            images: 输入图像张量 (带batch维度)
-            labels: 目标标签
-            epsilon: 总扰动上限 (默认0.04)
-            alpha: 单次迭代扰动大小 (默认0.01)
-            num_iter: 迭代次数 (默认10)
-
-        返回:
-            对抗样本张量
-        """
-        # 实现TCEGA攻击逻辑
-        # 这里需要根据原始代码实现具体的攻击算法
-        pass
-    
-    def _test_model_save_results(self, loader, save_path, adv_cloth=None, gan=None, z=None, type=None, 
-                                conf_thresh=0.5, nms_thresh=0.4, old_fasion=True):
-        """
-        测试模型性能并保存结果到JSON文件
-        
-        参数:
-            loader: 数据加载器
-            save_path: JSON文件保存路径
-            adv_cloth: 对抗补丁
-            gan: GAN模型
-            z: 潜在向量
-            type: 攻击类型 ('gan', 'z', 'patch')
-            conf_thresh: 置信度阈值
-            nms_thresh: NMS阈值
-            old_fasion: 是否使用旧版本
-            
-        返回:
-            保存的检测结果列表
-        """
-        self.model.eval()
-        results = []
-        
-        with torch.no_grad():
-            for batch_idx, (data, target) in tqdm(enumerate(loader), total=len(loader), position=0):
-                data = data.to(self.device)
-                
-                # 生成对抗补丁
-                adv_patch = None
-                if type == 'gan':
-                    z = torch.randn(1, 128, *self.args.z_size, device=self.device)
-                    cloth = gan.generate(z)
-                    adv_patch, x, y = random_crop(cloth, self.args.crop_size, 
-                                                pos=self.args.pos, crop_type=self.args.crop_type)
-                elif type == 'z':
-                    z_crop, _, _ = random_crop(z, self.args.z_crop_size, 
-                                                pos=self.args.z_pos, crop_type=self.args.z_crop_type)
-                    cloth = gan.generate(z_crop)
-                    adv_patch, x, y = random_crop(cloth, self.args.crop_size, 
-                                                pos=self.args.pos, crop_type=self.args.crop_type)
-                elif type == 'patch':
-                    adv_patch, x, y = random_crop(adv_cloth, self.args.crop_size, 
-                                                pos=self.args.pos, crop_type=self.args.crop_type)
-                elif type is not None:
-                    raise ValueError(f"Unsupported type: {type}")
-                    
-                # 应用对抗补丁
-                if adv_patch is not None:
-                    target = target.to(self.device)
-                    adv_batch_t = self.patch_transformer(adv_patch, target, self.args.img_size, 
-                                                        do_rotate=True, rand_loc=False,
-                                                        pooling=self.args.pooling, 
-                                                        old_fasion=old_fasion)
-                    data = self.patch_applier(data, adv_batch_t)
-                
-                # 模型推理
-                output = self.model(data)
-                all_boxes = yolo2_utils.get_region_boxes_general(output, self.model, 
-                                                        conf_thresh, self.kwargs['name'] if self.kwargs else 'yolov2')
-                
-                # 处理每个样本的检测结果
-                for i in range(len(all_boxes)):
-                    boxes = all_boxes[i]
-                    boxes = yolo2_utils.nms(boxes, nms_thresh)
-                    truths = target[i].view(-1, 5)
-                    truths = label_filter(truths, labels=[0])
-                    num_gts = truths_length(truths)
-                    truths = truths[:num_gts, 1:]
-                    
-                    # 保存检测结果
-                    sample_result = {
-                        'image_id': batch_idx * loader.batch_size + i,
-                        'detections': [],
-                        'ground_truth': []
-                    }
-                    
-                    # 保存检测框
-                    for j in range(len(boxes)):
-                        if boxes[j][6].item() == 0:  # 只保存person类别
-                            detection = {
-                                'bbox': boxes[j][:4].tolist(),  # [x1, y1, x2, y2]
-                                'confidence': boxes[j][4].item(),
-                                'class_id': int(boxes[j][6].item())
-                            }
-                            sample_result['detections'].append(detection)
-                    
-                    # 保存真实标签
-                    for j in range(num_gts):
-                        gt = {
-                            'bbox': truths[j].tolist(),  # [x_center, y_center, width, height]
-                            'class_id': 0  # person
-                        }
-                        sample_result['ground_truth'].append(gt)
-                    
-                    results.append(sample_result)
-        
-        # 保存结果到JSON文件
-        with open(save_path, 'w', encoding='utf-8') as f:
-            json.dump(results, f, indent=2, ensure_ascii=False)
-        
-        print(f"检测结果已保存到: {save_path}")
-        return results
-
-    def load_results_and_evaluate(self, results_path, iou_thresh=0.5, num_of_samples=100):
-        """
-        加载JSON结果文件并计算评测指标
-        
-        参数:
-            results_path: JSON结果文件路径
-            iou_thresh: IoU阈值
-            num_of_samples: 插值采样数量
-            
-        返回:
-            precision, recall, ap, confs
-        """
-        # 加载结果
-        with open(results_path, 'r', encoding='utf-8') as f:
-            results = json.load(f)
-        
-        positives = []
-        total = 0.0
-        
-        # 处理每个样本的结果
-        for sample_result in results:
-            detections = sample_result['detections']
-            ground_truth = sample_result['ground_truth']
-            
-            total += len(ground_truth)
-            
-            # 计算每个检测框的IoU
-            for detection in detections:
-                if detection['class_id'] == 0:  # person类别
-                    best_iou = 0
-                    is_positive = False
-                    
-                    # 与所有真实标签计算IoU
-                    for gt in ground_truth:
-                        if gt['class_id'] == 0:  # person类别
-                            # 转换bbox格式
-                            det_bbox = detection['bbox']  # [x1, y1, x2, y2]
-                            gt_bbox = gt['bbox']  # [x_center, y_center, width, height]
-                            
-                            # 转换gt_bbox为[x1, y1, x2, y2]格式
-                            gt_x1 = gt_bbox[0] - gt_bbox[2] / 2
-                            gt_y1 = gt_bbox[1] - gt_bbox[3] / 2
-                            gt_x2 = gt_bbox[0] + gt_bbox[2] / 2
-                            gt_y2 = gt_bbox[1] + gt_bbox[3] / 2
-                            gt_bbox_xyxy = [gt_x1, gt_y1, gt_x2, gt_y2]
-                            
-                            # 计算IoU
-                            iou = yolo2_utils.bbox_iou(gt_bbox_xyxy, det_bbox, x1y1x2y2=True)
-                            if iou > best_iou:
-                                best_iou = iou
-                    
-                    # 判断是否为真阳性
-                    if best_iou > iou_thresh:
-                        is_positive = True
-                    
-                    positives.append((detection['confidence'], is_positive))
-        
-        # 按置信度排序
-        positives = sorted(positives, key=lambda d: d[0], reverse=True)
-        
-        # 计算TP和FP
-        tps = []
-        fps = []
-        confs = []
-        tp_counter = 0
-        fp_counter = 0
-        
-        for pos in positives:
-            if pos[1]:
-                tp_counter += 1
-            else:
-                fp_counter += 1
-            tps.append(tp_counter)
-            fps.append(fp_counter)
-            confs.append(pos[0])
-        
-        # 计算precision和recall
-        precision = []
-        recall = []
-        for tp, fp in zip(tps, fps):
-            recall.append(tp / total if total > 0 else 0)
-            precision.append(tp / (fp + tp) if (fp + tp) > 0 else 0)
-        
-        # 计算AP
-        if len(precision) > 1 and len(recall) > 1:
-            p = np.array(precision)
-            r = np.array(recall)
-            p_start = p[np.argmin(r)] if len(r) > 0 else 0
-            samples = np.arange(0., 1., 1.0 / num_of_samples)
-            interpolated = interp1d(r, p, fill_value=(p_start, 0.), bounds_error=False)(samples)
-            avg = sum(interpolated) / len(interpolated)
-        elif len(precision) > 0 and len(recall) > 0:
-            avg = precision[0] * recall[0]
-        else:
-            avg = float('nan')
-        
-        return precision, recall, avg, confs
-
-    def run_evaluation_with_save(self, img_ori_dir, save_dir='./test_results', prepare_data=False):
-        """
-        运行完整的评估流程，保存结果到JSON文件
-        
-        参数:
-            save_dir: 结果保存目录
-            prepare_data: 是否准备数据
-            
-        返回:
-            precision, recall, ap, confs
-        """
-        if not hasattr(self, 'test_cloth'):
-            raise ValueError("Please load pretrained attack model first using load_pretrained_attack()")
-            
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
-            
-        save_path = os.path.join(save_dir, f'yolov2_{self.method}_results.json')
-
-        if prepare_data:
-            self.prepare_data(img_ori_dir)
-        
-        # 创建测试数据加载器
-        img_dir_test = './data/test_padded'
-        lab_dir_test = f'./data/test_lab_{self.kwargs["name"] if self.kwargs else "yolov2"}'
-        test_data = load_data.InriaDataset(img_dir_test,
-                                           lab_dir_test, 
-                                         self.kwargs['max_lab'], 
-                                         self.args.img_size, 
-                                         shuffle=False)
-        test_loader = torch.utils.data.DataLoader(test_data, self.args.batch_size, shuffle=False, num_workers=10)
-        
-        # 运行测试并保存结果
-        print("开始测试并保存结果...")
-        self._test_model_save_results(test_loader, save_path, 
-                                    adv_cloth=self.test_cloth, 
-                                    gan=self.test_gan, 
-                                    z=self.test_z, 
-                                    type=self.test_type, 
-                                    conf_thresh=0.01, 
-                                    old_fasion=self.kwargs['old_fasion'] if self.kwargs else True)
-        
-        # 加载结果并计算指标
-        print("加载结果并计算评测指标...")
-        prec, rec, ap, confs = self.load_results_and_evaluate(save_path)
-        
-        # 保存指标结果
-        metrics_path = os.path.join(save_dir, f'yolov2_{self.method}_metrics.npz')
-        np.savez(metrics_path, prec=prec, rec=rec, ap=ap, confs=confs, 
-                adv_patch=self.cloth.detach().cpu().numpy())
-        
-        # 绘制PR曲线
-        plt.figure(figsize=[10, 8])
-        plt.plot(rec, prec, linewidth=2)
-        plt.xlabel('Recall')
-        plt.ylabel('Precision')
-        plt.title(f'{self.method} PR Curve (AP: {ap:.4f})')
-        plt.grid(True, alpha=0.3)
-        plt.legend([f'{self.method}: AP {ap:.3f}'])
-        
-        # 保存图像
-        img_path = os.path.join(save_dir, f'yolov2_{self.method}_pr_curve.png')
-        plt.savefig(img_path, dpi=300, bbox_inches='tight')
-        plt.close()
-        
-        # 保存对抗补丁图像
-        patch_path = os.path.join(save_dir, f'yolov2_{self.method}_patch.png')
-        unloader(self.cloth[0]).save(patch_path)
-        
-        print(f'AP is {ap:.4f}')
-        print(f'结果已保存到: {save_dir}')
-        
-        return prec, rec, ap, confs
-
     def _test_model(self, loader, adv_cloth=None, gan=None, z=None, type=None, 
                    conf_thresh=0.5, nms_thresh=0.4, iou_thresh=0.5, num_of_samples=100,
                    old_fasion=True):
@@ -747,31 +378,14 @@ class TCEGA:
             positives = []
             for batch_idx, (data, target) in tqdm(enumerate(loader), total=batch_num, position=0):
                 data = data.to(self.device)
-                
-                if type == 'gan':
-                    z = torch.randn(1, 128, *self.args.z_size, device=self.device)
-                    cloth = gan.generate(z)
-                    adv_patch, x, y = random_crop(cloth, self.args.crop_size, 
-                                                pos=self.args.pos, crop_type=self.args.crop_type)
-                elif type == 'z':
-                    z_crop, _, _ = random_crop(z, self.args.z_crop_size, 
-                                                pos=self.args.z_pos, crop_type=self.args.z_crop_type)
-                    cloth = gan.generate(z_crop)
-                    adv_patch, x, y = random_crop(cloth, self.args.crop_size, 
-                                                pos=self.args.pos, crop_type=self.args.crop_type)
-                elif type == 'patch':
-                    adv_patch, x, y = random_crop(adv_cloth, self.args.crop_size, 
-                                                pos=self.args.pos, crop_type=self.args.crop_type)
-                elif type is not None:
-                    raise ValueError
-                    
-                if adv_patch is not None:
-                    target = target.to(self.device)
-                    adv_batch_t = self.patch_transformer(adv_patch, target, self.args.img_size, 
-                                                        do_rotate=True, rand_loc=False,
-                                                        pooling=self.args.pooling, 
-                                                        old_fasion=old_fasion)
-                    data = self.patch_applier(data, adv_batch_t)
+                target = target.to(self.device)
+
+                adv_patch = self.generate_adv_patch()
+                adv_batch_t = self.patch_transformer(adv_patch, target, self.args.img_size, 
+                                                    do_rotate=True, rand_loc=False,
+                                                    pooling=self.args.pooling, 
+                                                    old_fasion=old_fasion)
+                data = self.patch_applier(data, adv_batch_t)
                 
                 output = self.model(data)
                 all_boxes = yolo2_utils.get_region_boxes_general(output, self.model, 

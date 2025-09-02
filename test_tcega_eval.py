@@ -33,11 +33,6 @@ if __name__ == "__main__":
     # test_basic_function()
 
     # 评测四种方法
-    # for method_idx, method in enumerate(['RCA', 'TCA', 'EGA', 'TCEGA']):
-    #     set_random_seed()
-    #     if method_idx == 0:
-    #         test_evaluate(method, prepare_data=True)
-    #     else:
-    #         test_evaluate(method, prepare_data=False)
-    set_random_seed()
-    test_evaluate('TCA', prepare_data=False)
+    for method_idx, method in enumerate(['RCA', 'TCA', 'EGA', 'TCEGA']):
+        set_random_seed()
+        test_evaluate(method, prepare_data=False)

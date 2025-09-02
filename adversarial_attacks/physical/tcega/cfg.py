@@ -167,7 +167,7 @@ targs_dict = {
     }
 
 
-def get_cfgs(net_name, method_name, mode='training'):
+def get_cfgs(net_name, method_name, mode='test'):
     if mode == 'training':
         args = args_dict[method_name]
         args = EasyDict(args)
