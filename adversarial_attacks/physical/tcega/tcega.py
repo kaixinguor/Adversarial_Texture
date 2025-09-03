@@ -65,6 +65,7 @@ class TCEGA:
         # 加载预训练的对抗攻击模型
         default_load_path = {'RCA': 'pretrained/RCA2.npy',
                              'TCA': 'pretrained/TCA.npy',
+                            #  'TCA': 'training_results/yolov2_TCA_result/patch_epoch800.npy',
                              'EGA': 'pretrained/EGA.pkl',
                              'TCEGA': 'pretrained/TCEGA_z.npy'}
         
@@ -206,7 +207,7 @@ class TCEGA:
 
         return dict(bboxes=bboxes, labels=labels, scores=scores)
 
-    def generate_adversarial_example(self, image):
+    def generate_adversarial_example(self, image, target_label):
         """
         生成对抗样本
         Args:
@@ -234,7 +235,7 @@ class TCEGA:
         # 使用patch transformer处理patch
         target = boxes7[:, [6, 0, 1, 2, 3]]
         target = target.unsqueeze(0).to(self.device)
-        adv_batch_t = self.patch_transformer(self.adv_patch, target, self.args.img_size, 
+        adv_batch_t = self.patch_transformer(self.adv_patch, target, target_label, self.args.img_size, 
                                            do_rotate=True, rand_loc=False,
                                            pooling=self.args.pooling, 
                                            old_fasion=self.kwargs.get('old_fasion', True))

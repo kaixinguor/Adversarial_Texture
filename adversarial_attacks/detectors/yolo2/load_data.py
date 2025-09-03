@@ -196,7 +196,7 @@ class PatchTransformer(nn.Module):
         self.kernel = kernel.unsqueeze(0).unsqueeze(0).expand(3,3,-1,-1)
         # It's wrong!
         '''
-    def forward(self, adv_patch, lab_batch, img_size, do_rotate=True, rand_loc=True, lc_scale=0.1, pooling='median', rand_sub=False, old_fasion=True):
+    def forward(self, adv_patch, lab_batch, target_label, img_size, do_rotate=True, rand_loc=True, lc_scale=0.1, pooling='median', rand_sub=False, old_fasion=True):
         if adv_patch.dim() == 3:
             adv_patch = adv_patch.unsqueeze(0)
 
@@ -257,7 +257,7 @@ class PatchTransformer(nn.Module):
         # cls_mask = cls_mask.expand(-1, -1, -1, -1, adv_batch.size(4))
         # # msk_batch = torch.cuda.FloatTensor(cls_mask.size()).fill_(1) - cls_mask
         # msk_batch = adv_patch.new(cls_mask.size()).fill_(1) + cls_mask  # (B, L, 3, 324, 324)
-        msk_batch = adv_patch.new(adv_batch.shape).fill_(1).logical_and((lab_batch[:, :, 0] == 0).view(B, L, 1, 1, 1))
+        msk_batch = adv_patch.new(adv_batch.shape).fill_(1).logical_and((lab_batch[:, :, 0] == target_label).view(B, L, 1, 1, 1))
 
 
         # Pad patch and mask to image dimensions

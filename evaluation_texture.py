@@ -35,11 +35,11 @@ parser.add_argument('--load_path_z', default=None, help='')
 parser.add_argument('--npz_dir', default=None, help='')
 pargs = parser.parse_args()
 
-img_ori_dir = './data/INRIAPerson/Test/pos'
-target_label = 0
+# img_ori_dir = './data/INRIAPerson/Test/pos'
+# target_label = 0
 
-# img_ori_dir = 'dataset/coco2017_car/sub100/images/val2017'
-# target_label = 2
+img_ori_dir = 'dataset/coco2017_car/sub100/images/val2017'
+target_label = 2
 
 
 set_random_seed()
@@ -146,7 +146,7 @@ def test(model, loader, target_label=0,adv_cloth=None, gan=None, z=None, type=No
 
             if adv_patch is not None:
                 target = target.to(device)
-                adv_batch_t = patch_transformer(adv_patch, target, args.img_size, do_rotate=True, rand_loc=False,
+                adv_batch_t = patch_transformer(adv_patch, target, target_label, args.img_size, do_rotate=True, rand_loc=False,
                                                 pooling=args.pooling, old_fasion=old_fasion)
                 data = patch_applier(data, adv_batch_t)
             output = model(data)

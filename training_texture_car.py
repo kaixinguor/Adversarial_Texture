@@ -105,6 +105,7 @@ class_names = utils.load_class_names('./data/coco.names')
 
 img_dir_train = 'dataset/coco2017_car/train1000/images/train2017'
 lab_dir_train = 'dataset/coco2017_car/train1000/yolo_labels/train2017'
+target_label = 2
 
 train_data = load_data.InriaDataset(img_dir_train, lab_dir_train, kwargs['max_lab'], args.img_size, shuffle=True, target_label=2)
 train_loader = torch.utils.data.DataLoader(train_data, batch_size=kwargs['batch_size'], shuffle=True, num_workers=10)
@@ -206,7 +207,7 @@ def train_patch():
             lab_batch = lab_batch.to(device)
             adv_patch_crop, x, y = random_crop(adv_patch, args.crop_size, pos=args.pos, crop_type=args.crop_type)
             adv_patch_tps, _ = tps.tps_trans(adv_patch_crop, max_range=0.1, canvas=0.5) # random tps transform
-            adv_batch_t = patch_transformer(adv_patch_tps, lab_batch, args.img_size, do_rotate=True, rand_loc=False,
+            adv_batch_t = patch_transformer(adv_patch_tps, lab_batch, target_label, args.img_size, do_rotate=True, rand_loc=False,
                                             pooling=args.pooling, old_fasion=kwargs['old_fasion'])
             p_img_batch = patch_applier(img_batch, adv_batch_t)
             det_loss, valid_num = get_det_loss(darknet_model, p_img_batch, lab_batch, args, kwargs)

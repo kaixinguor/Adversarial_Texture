@@ -31,6 +31,7 @@ def test_single_image_inference():
     # test_image_path = 'dataset/coco2017_person/sub100/images/val2017/000000201072.jpg'
     # test_image_path = 'dataset/coco2017_person/sub100/images/val2017/000000312489.jpg'
     test_image_path = 'dataset/coco2017_car/sub100/images/val2017/000000315187.jpg'
+    target_label = 2
     
     # 加载测试图片
     test_image = Image.open(test_image_path).convert('RGB')
@@ -59,7 +60,7 @@ def test_single_image_inference():
     # 2. 对抗样本生成和检测
     print("\n2. 对抗样本生成和检测...")
     try:
-        adversarial_image = tcega.generate_adversarial_example(test_image)
+        adversarial_image = tcega.generate_adversarial_example(test_image, target_label)
         
         # 对对抗样本进行检测
         adversarial_results = tcega.detect(adversarial_image)
