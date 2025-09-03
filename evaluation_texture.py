@@ -122,12 +122,11 @@ loader = test_loader
 epoch_length = len(loader)
 print(f'One epoch is {len(loader)}')
 
-
 def truths_length(truths):
-    for i in range(50):
+    for i in range(len(truths)):
         if truths[i][1] == -1:
             return i
-
+    return len(truths)
 
 def label_filter(truths, labels=None):
     if labels is not None:
