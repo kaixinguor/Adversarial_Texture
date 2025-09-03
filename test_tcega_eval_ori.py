@@ -7,7 +7,7 @@ import torch
 import numpy as np
 from tqdm import tqdm
 from scipy.interpolate import interp1d
-
+import shutil
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -25,6 +25,11 @@ def prepare_data(attacker, img_ori_dir, target_label):
     nms_thresh = 0.4
     img_dir = './data/test_padded'
     lab_dir = './data/test_lab_%s' % attacker.kwargs['name']
+
+    print("remove old data")
+    shutil.rmtree(lab_dir)
+    shutil.rmtree(img_dir)
+
     data_nl = load_data.InriaDataset(img_ori_dir, None, attacker.kwargs['max_lab'], attacker.args.img_size, shuffle=False)
     loader_nl = torch.utils.data.DataLoader(data_nl, batch_size=attacker.args.batch_size, shuffle=False, num_workers=10)
     if lab_dir is not None:
@@ -65,7 +70,7 @@ def test_model(attacker, loader, target_label, conf_thresh=0.5, nms_thresh=0.4, 
 
     with torch.no_grad():
         positives = []
-        for batch_idx, (data, target) in tqdm(enumerate(loader), total=batch_num, position=0):
+        for batch_idx, (data, target, img_paths, lab_paths) in tqdm(enumerate(loader), total=batch_num, position=0):
             data = data.to(attacker.device)
             target = target.to(attacker.device)
 
@@ -149,6 +154,7 @@ def run_evaluation(method,
                    do_prepare_data=False):
 
     tcega = TCEGA(method=method)
+    tcega.args['max_lab'] = 100
 
     """运行完整的评估流程"""
     if not hasattr(tcega, 'test_cloth'):

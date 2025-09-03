@@ -400,7 +400,7 @@ class InriaDataset(Dataset):
 
     """
 
-    def __init__(self, img_dir, lab_dir, max_lab, imgsize, shuffle=True, target_label=None):
+    def __init__(self, img_dir, lab_dir, max_lab, imgsize, target_label=None, shuffle=True):
         n_png_images = len(fnmatch.filter(os.listdir(img_dir), '*.png'))
         n_jpg_images = len(fnmatch.filter(os.listdir(img_dir), '*.jpg'))
         n_images = n_png_images + n_jpg_images

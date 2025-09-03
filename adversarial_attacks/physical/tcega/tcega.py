@@ -50,6 +50,14 @@ class TCEGA:
         self.conf_thresh = conf_thresh
         self.nms_thresh = nms_thresh
 
+        if args is None or kwargs is None:
+            args, kwargs = get_cfgs('yolov2', self.method)
+            print("load default model cfg", args, kwargs)
+        else:
+            print("use custom model cfg", args, kwargs)
+        self.args = args
+        self.kwargs = kwargs  
+
         # 加载模型
         self._load_model(model_name)
             
@@ -65,7 +73,7 @@ class TCEGA:
         # 加载预训练的对抗攻击模型
         default_load_path = {'RCA': 'pretrained/RCA2.npy',
                              'TCA': 'pretrained/TCA.npy',
-                            #  'TCA': 'training_results/yolov2_TCA_result/patch_epoch800.npy',
+                            #  'TCA': 'training_results/yolov2_TCA_result/patch_epoch400.npy',
                              'EGA': 'pretrained/EGA.pkl',
                              'TCEGA': 'pretrained/TCEGA_z.npy'}
         
@@ -82,16 +90,15 @@ class TCEGA:
         ])
 
         self.adv_patch = None
+
+ 
     
     def _load_model(self, model_name):
         """加载模型"""
         if model_name == "yolov2":
-            args, kwargs = get_cfgs('yolov2', self.method)
-            print("model cfg", args, kwargs)
-            self.model = load_models(**kwargs)
+            self.model = load_models(**self.kwargs)
             self.model = self.model.eval().to(self.device)
-            self.args = args
-            self.kwargs = kwargs
+     
         else:
             raise ValueError(f"Unsupported model: {model_name}")
         

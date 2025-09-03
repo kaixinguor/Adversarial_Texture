@@ -7,9 +7,9 @@
 
 
 ##### TCA
-python evaluation_texture.py --method TCA --load_path pretrained/TCA.npy # --prepare_data
+# python evaluation_texture.py --method TCA --load_path pretrained/TCA.npy # --prepare_data
 
-# python evaluation_texture.py --method TCA --load_path training_results/yolov2_TCA_result/patch_epoch800.npy # --prepare_data
+python evaluation_texture.py --method TCA --load_path training_results/yolov2_TCA_result/patch_epoch300.npy --prepare_data
 
 
 
