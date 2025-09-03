@@ -18,7 +18,7 @@ from adversarial_attacks.detectors.yolo2 import load_data
 from adversarial_attacks.detectors.yolo2 import utils as yolo2_utils
 from adversarial_attacks.physical.tcega.utils import label_filter, truths_length, unloader
 
-def prepare_data(attacker,img_ori_dir):
+def prepare_data(attacker,img_ori_dir, target_label=0):
 
     conf_thresh = 0.5
     nms_thresh = 0.4
@@ -42,7 +42,7 @@ def prepare_data(attacker,img_ori_dir):
                 boxes = all_boxes[i]
                 boxes = yolo2_utils.nms(boxes, nms_thresh)
                 new_boxes = boxes[:, [6, 0, 1, 2, 3]]
-                new_boxes = new_boxes[new_boxes[:, 0] == 0]
+                new_boxes = new_boxes[new_boxes[:, 0] == target_label]
                 new_boxes = new_boxes.detach().cpu().numpy()
                 if lab_dir is not None:
                     save_dir = os.path.join(lab_dir, labs[i])
@@ -53,7 +53,7 @@ def prepare_data(attacker,img_ori_dir):
                     img.save(save_dir)
     print('preparing done')
 
-def test_model(attacker, loader, conf_thresh=0.5, nms_thresh=0.4, iou_thresh=0.5, num_of_samples=100,
+def test_model(attacker, loader, target_label=0, conf_thresh=0.5, nms_thresh=0.4, iou_thresh=0.5, num_of_samples=100,
                 old_fasion=True):
     """测试模型性能"""
     attacker.model.eval()
@@ -83,14 +83,14 @@ def test_model(attacker, loader, conf_thresh=0.5, nms_thresh=0.4, iou_thresh=0.5
                 boxes = all_boxes[i]
                 boxes = yolo2_utils.nms(boxes, nms_thresh)
                 truths = target[i].view(-1, 5)
-                truths = label_filter(truths, labels=[0])
+                truths = label_filter(truths, labels=[target_label])
                 num_gts = truths_length(truths)
                 truths = truths[:num_gts, 1:]
                 truths = truths.tolist()
                 total = total + num_gts
                 
                 for j in range(len(boxes)):
-                    if boxes[j][6].item() == 0:
+                    if boxes[j][6].item() == target_label:
                         best_iou = 0
                         best_index = 0
 

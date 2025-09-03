@@ -37,6 +37,7 @@ pargs = parser.parse_args()
 
 img_ori_dir = './data/INRIAPerson/Test/pos'
 target_label = 0
+
 # img_ori_dir = 'dataset/coco2017_car/sub100/images/val2017'
 # target_label = 2
 
@@ -98,7 +99,7 @@ if pargs.prepare_data:
                 boxes = all_boxes[i]
                 boxes = yolo2_utils.nms(boxes, nms_thresh)
                 new_boxes = boxes[:, [6, 0, 1, 2, 3]]
-                new_boxes = new_boxes[new_boxes[:, 0] == 0]
+                new_boxes = new_boxes[new_boxes[:, 0] == target_label]
                 new_boxes = new_boxes.detach().cpu().numpy()
                 if lab_dir is not None:
                     save_dir = os.path.join(lab_dir, labs[i])
@@ -160,7 +161,7 @@ def test(model, loader, target_label=0,adv_cloth=None, gan=None, z=None, type=No
                 truths = truths.tolist()
                 total = total + num_gts
                 for j in range(len(boxes)):
-                    if boxes[j][6].item() == 0:
+                    if boxes[j][6].item() == target_label:
                         best_iou = 0
                         best_index = 0
 
@@ -176,6 +177,7 @@ def test(model, loader, target_label=0,adv_cloth=None, gan=None, z=None, type=No
                             positives.append((boxes[j][4].item(), False))
         positives = sorted(positives, key=lambda d: d[0], reverse=True)
 
+        print("total targets: ", total)
         tps = []
         fps = []
         confs = []

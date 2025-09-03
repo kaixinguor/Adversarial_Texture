@@ -278,7 +278,12 @@ class TCEGA:
         return padded_image
     
     def _postprocess_detection_output(self, output, conf_thresh=0.5, nms_thresh=0.4):
-
+        """
+        [xs/w, ys/h, ws/w, hs/h, det_confs, cls_max_confs, cls_max_ids]
+         
+         
+         
+         """
         all_boxes = yolo2_utils.get_region_boxes_general(output, self.model, conf_thresh, self.kwargs['name'])
         boxes7 = all_boxes[0]
         boxes7 = yolo2_utils.nms(boxes7, self.nms_thresh) # [xs/w, ys/h, ws/w, hs/h, det_confs, cls_max_confs, cls_max_ids]
