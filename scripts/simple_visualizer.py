@@ -9,7 +9,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-def visualize_yolo_annotations(image_path, annotation_path=None, save_path=None, class_names=['person']):
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from adversarial_attacks.utils.coco_categories80 import COCO_INSTANCE_CATEGORY_NAMES as COCO80_LABELMAP
+
+def visualize_yolo_annotations(image_path, annotation_path=None, save_path=None, class_names=COCO80_LABELMAP):
     """
     可视化图片和YOLO格式的标注框
     
@@ -163,8 +168,8 @@ def visualize_batch_images(image_dir, annotation_dir, output_dir=None, max_image
 if __name__ == "__main__":
     # 示例1: 可视化单张图片
     visualize_yolo_annotations(
-        image_path="data/INRIAPerson/Train/pos/crop001004.png",
-        annotation_path="data/train_labels/crop001004.txt",
+        image_path="dataset/coco2017_person/sub100/images/val2017/000000005001.jpg",
+        annotation_path="dataset/coco2017_person/sub100/yolo_labels/val2017/000000005001.txt",
         save_path="test_visualization.png"
     )
     
