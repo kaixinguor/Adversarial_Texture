@@ -16,9 +16,10 @@ from adversarial_attacks.physical import TCEGA
 from adversarial_attacks.utils.aux_tool import set_random_seed
 from adversarial_attacks.detectors.yolo2 import load_data
 from adversarial_attacks.detectors.yolo2 import utils as yolo2_utils
-from adversarial_attacks.physical.tcega.utils import label_filter, truths_length, unloader
+from adversarial_attacks.physical.tcega.utils import label_filter, truths_length
+from adversarial_attacks.utils.aux_tool import unloader
 
-def prepare_data(attacker,img_ori_dir, target_label=0):
+def prepare_data(attacker, img_ori_dir, target_label):
 
     conf_thresh = 0.5
     nms_thresh = 0.4
@@ -53,7 +54,7 @@ def prepare_data(attacker,img_ori_dir, target_label=0):
                     img.save(save_dir)
     print('preparing done')
 
-def test_model(attacker, loader, target_label=0, conf_thresh=0.5, nms_thresh=0.4, iou_thresh=0.5, num_of_samples=100,
+def test_model(attacker, loader, target_label, conf_thresh=0.5, nms_thresh=0.4, iou_thresh=0.5, num_of_samples=100,
                 old_fasion=True):
     """测试模型性能"""
     attacker.model.eval()
@@ -69,7 +70,7 @@ def test_model(attacker, loader, target_label=0, conf_thresh=0.5, nms_thresh=0.4
             target = target.to(attacker.device)
 
             adv_patch = attacker.generate_adv_patch()
-            adv_batch_t = attacker.patch_transformer(adv_patch, target, attacker.args.img_size, 
+            adv_batch_t = attacker.patch_transformer(adv_patch, target, target_label, attacker.args.img_size, 
                                                 do_rotate=True, rand_loc=False,
                                                 pooling=attacker.args.pooling, 
                                                 old_fasion=old_fasion)
@@ -141,7 +142,11 @@ def test_model(attacker, loader, target_label=0, conf_thresh=0.5, nms_thresh=0.4
 
     return precision, recall, avg, confs
     
-def run_evaluation(method, img_ori_dir, save_dir='./test_results', prepare_data=False):
+def run_evaluation(method, 
+                   img_ori_dir, 
+                   target_label, 
+                   save_dir='./test_results', 
+                   do_prepare_data=False):
 
     tcega = TCEGA(method=method)
 
@@ -154,8 +159,8 @@ def run_evaluation(method, img_ori_dir, save_dir='./test_results', prepare_data=
         
     save_path = os.path.join(save_dir, f'yolov2_{method}')
 
-    if prepare_data:
-        prepare_data(tcega, img_ori_dir)
+    if do_prepare_data:
+        prepare_data(tcega, img_ori_dir, target_label)
     
     # 创建测试数据加载器
     img_dir_test = './data/test_padded'
@@ -169,7 +174,7 @@ def run_evaluation(method, img_ori_dir, save_dir='./test_results', prepare_data=
     
     # 运行测试
     plt.figure(figsize=[15, 10])
-    prec, rec, ap, confs = test_model(tcega, test_loader, conf_thresh=0.01, 
+    prec, rec, ap, confs = test_model(tcega, test_loader, target_label, conf_thresh=0.01, 
                                             old_fasion=tcega.kwargs['old_fasion'] if tcega.kwargs else True)
     
     # 保存结果
@@ -182,23 +187,22 @@ def run_evaluation(method, img_ori_dir, save_dir='./test_results', prepare_data=
     unloader(tcega.cloth[0]).save(save_path + '.png')
     
     return prec, rec, ap, confs
-    
-def preproduce_benchmark(method, img_ori_dir, prepare_data=False):
-    """测试评估功能"""
-    print(f"\n评估{method}方法...")
-
-    run_evaluation(method=method, img_ori_dir=img_ori_dir,
-                         save_dir=f'./test_results_reproduce/{method}', 
-                         prepare_data=prepare_data
-                         )
 
 if __name__ == "__main__":
     # test_basic_function()
 
     img_ori_dir = './data/INRIAPerson/Test/pos'
+    target_label = 0
+    method = "TCA"
+
     # img_ori_dir = './data/coco2017_person/sub100/images/val2017'
 
+    set_random_seed()
+    run_evaluation(method=method, img_ori_dir=img_ori_dir, target_label=target_label,
+                    save_dir=f'./test_results_reproduce/{method}', 
+                    do_prepare_data=True)
+
     # 评测四种方法
-    for method_idx, method in enumerate(['RCA', 'TCA', 'EGA', 'TCEGA']):
-        set_random_seed()
-        preproduce_benchmark(method, img_ori_dir, prepare_data=False)
+    # for method_idx, method in enumerate(['RCA', 'TCA', 'EGA', 'TCEGA']):
+    #     set_random_seed()
+    #     preproduce_benchmark(method, img_ori_dir, prepare_data=False)
