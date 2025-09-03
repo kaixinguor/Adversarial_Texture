@@ -7,6 +7,7 @@ import torch
 import numpy as np
 from tqdm import tqdm
 from scipy.interpolate import interp1d
+import shutil
 
 import matplotlib
 matplotlib.use('Agg')
@@ -23,6 +24,11 @@ def prepare_data(attacker, img_ori_dir, lbl_ori_dir, target_label):
 
     img_dir = './data/test_padded'
     lab_dir = './data/test_lab_%s' % attacker.kwargs['name']
+
+    print("remove old data")
+    shutil.rmtree(lab_dir)
+    shutil.rmtree(img_dir)
+
     data_nl = load_data.InriaDataset(img_ori_dir, lbl_ori_dir, attacker.args['max_lab'], attacker.args.img_size, target_label=target_label, shuffle=False)
     loader_nl = torch.utils.data.DataLoader(data_nl, batch_size=attacker.args.batch_size, shuffle=False, num_workers=10)
     if lab_dir is not None:
@@ -43,7 +49,7 @@ def prepare_data(attacker, img_ori_dir, lbl_ori_dir, target_label):
                     np.savetxt(save_dir, boxes, fmt='%f')
                     
                 if img_dir is not None:
-                    filename = os.path.basename(img_path_batch[i])
+                    filename = os.path.basename(img_path_batch[i]).replace('.jpg', '.png')
                     save_dir = os.path.join(img_dir, filename)
                     img = unloader(img_batch[i].detach().cpu())
                     img.save(save_dir)
