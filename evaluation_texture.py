@@ -5,32 +5,22 @@ from tqdm import tqdm
 import argparse
 from scipy.interpolate import interp1d
 from torchvision import transforms
-unloader = transforms.ToPILImage()
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import fnmatch
 import re
+import numpy as np
 
-# 关闭随机性
-
-def set_random_seed(seed=42):
-    import numpy as np
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.backends.cudnn.deterministic = True  # 确保CuDNN使用确定性算法
-    torch.backends.cudnn.benchmark = False     # 关闭自动优化（避免非确定性）
-    # torch.use_deterministic_algorithms(True)   # 强制使用确定性算法（PyTorch 1.7+）
-
-set_random_seed()
-
+from adversarial_attacks.utils.aux_tool import set_random_seed, unloader
 from adversarial_attacks.detectors.yolo2 import load_data
 from adversarial_attacks.detectors.yolo2 import utils as yolo2_utils
-from train_utils import *
+from adversarial_attacks.detectors.load_models import load_models
+from adversarial_attacks.physical.tcega.utils import random_crop
 from adversarial_attacks.physical.tcega.cfg import get_cfgs
 from adversarial_attacks.physical.tcega.tps_grid_gen import TPSGridGen
-from adversarial_attacks.detectors.load_models import load_models
 from adversarial_attacks.physical.tcega.generator_dim import GAN_dis
+from adversarial_attacks.physical.tcega.utils import label_filter, truths_length
 
 parser = argparse.ArgumentParser(description='PyTorch Training')
 parser.add_argument('--net', default='yolov2', help='target net name')
@@ -43,9 +33,15 @@ parser.add_argument('--epoch', type=int, default=None, help='')
 parser.add_argument('--load_path', default=None, help='')
 parser.add_argument('--load_path_z', default=None, help='')
 parser.add_argument('--npz_dir', default=None, help='')
-# parser.add_argument('--eval_times', type=int, default=1, help='evaluate multiple times')
 pargs = parser.parse_args()
 
+img_ori_dir = './data/INRIAPerson/Test/pos'
+target_label = 0
+# img_ori_dir = 'dataset/coco2017_car/sub100/images/val2017'
+# target_label = 2
+
+
+set_random_seed()
 
 args, kwargs = get_cfgs(pargs.net, pargs.method, 'test')
 if pargs.epoch is not None:
@@ -82,7 +78,6 @@ results_dir = './results/result_' + pargs.suffix
 if pargs.prepare_data:
     conf_thresh = 0.5
     nms_thresh = 0.4
-    img_ori_dir = './data/INRIAPerson/Test/pos'
     img_dir = './data/test_padded'
     lab_dir = './data/test_lab_%s' % kwargs['name']
     data_nl = load_data.InriaDataset(img_ori_dir, None, kwargs['max_lab'], args.img_size, shuffle=False)
@@ -122,24 +117,7 @@ loader = test_loader
 epoch_length = len(loader)
 print(f'One epoch is {len(loader)}')
 
-def truths_length(truths):
-    for i in range(len(truths)):
-        if truths[i][1] == -1:
-            return i
-    return len(truths)
-
-def label_filter(truths, labels=None):
-    if labels is not None:
-        new_truths = truths.new(truths.shape).fill_(-1)
-        c = 0
-        for t in truths:
-            if t[0].item() in labels:
-                new_truths[c] = t
-                c = c + 1
-        return new_truths
-
-
-def test(model, loader, adv_cloth=None, gan=None, z=None, type=None, conf_thresh=0.5, nms_thresh=0.4, iou_thresh=0.5, num_of_samples=100,
+def test(model, loader, target_label=0,adv_cloth=None, gan=None, z=None, type=None, conf_thresh=0.5, nms_thresh=0.4, iou_thresh=0.5, num_of_samples=100,
          old_fasion=True):
     model.eval()
     total = 0.0
@@ -176,7 +154,7 @@ def test(model, loader, adv_cloth=None, gan=None, z=None, type=None, conf_thresh
                 boxes = all_boxes[i]
                 boxes = yolo2_utils.nms(boxes, nms_thresh)
                 truths = target[i].view(-1, 5)
-                truths = label_filter(truths, labels=[0])
+                truths = label_filter(truths, labels=[target_label])
                 num_gts = truths_length(truths)
                 truths = truths[:num_gts, 1:]
                 truths = truths.tolist()
@@ -285,7 +263,7 @@ if pargs.npz_dir is None:
     save_path = os.path.join(save_dir, pargs.suffix)
 
     plt.figure(figsize=[15, 10])
-    prec, rec, ap, confs = test(darknet_model, test_loader, adv_cloth=test_cloth, gan=test_gan, z=test_z, type=test_type, conf_thresh=0.01, old_fasion=kwargs['old_fasion'])
+    prec, rec, ap, confs = test(darknet_model, test_loader, target_label=target_label, adv_cloth=test_cloth, gan=test_gan, z=test_z, type=test_type, conf_thresh=0.01, old_fasion=kwargs['old_fasion'])
 
     np.savez(save_path, prec=prec, rec=rec, ap=ap, confs=confs, adv_patch=cloth.detach().cpu().numpy())
     print('AP is %.4f'% ap)

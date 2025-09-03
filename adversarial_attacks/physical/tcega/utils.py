@@ -1,11 +1,6 @@
 import numpy as np
 import torch.nn.functional as F
 from adversarial_attacks.detectors.yolo2 import utils as yolo2_utils
-from torchvision import transforms
-
-
-unloader = transforms.ToPILImage()
-
 
 # 辅助函数
 def truths_length(truths):
