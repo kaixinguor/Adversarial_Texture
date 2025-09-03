@@ -27,8 +27,10 @@ def prepare_data(attacker, img_ori_dir, target_label):
     lab_dir = './data/test_lab_%s' % attacker.kwargs['name']
 
     print("remove old data")
-    shutil.rmtree(lab_dir)
-    shutil.rmtree(img_dir)
+    if os.path.exists(lab_dir):
+        shutil.rmtree(lab_dir)
+    if os.path.exists(img_dir):
+        shutil.rmtree(img_dir)
 
     data_nl = load_data.InriaDataset(img_ori_dir, None, attacker.kwargs['max_lab'], attacker.args.img_size, shuffle=False)
     loader_nl = torch.utils.data.DataLoader(data_nl, batch_size=attacker.args.batch_size, shuffle=False, num_workers=10)

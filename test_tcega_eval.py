@@ -22,47 +22,99 @@ from adversarial_attacks.utils.aux_tool import unloader
 
 def prepare_data(attacker, img_ori_dir, lbl_ori_dir, target_label):
 
+    conf_thresh = 0.5
+    nms_thresh = 0.4
     img_dir = './data/test_padded'
     lab_dir = './data/test_lab_%s' % attacker.kwargs['name']
+    det_dir = './data/test_det_%s' % attacker.kwargs['name'] # 
 
     print("remove old data")
-    shutil.rmtree(lab_dir)
-    shutil.rmtree(img_dir)
+    if os.path.exists(lab_dir):
+        shutil.rmtree(lab_dir)
+    if os.path.exists(img_dir):
+        shutil.rmtree(img_dir)
+    if os.path.exists(det_dir):
+        shutil.rmtree(det_dir)
 
-    data_nl = load_data.InriaDataset(img_ori_dir, lbl_ori_dir, attacker.args['max_lab'], attacker.args.img_size, target_label=target_label, shuffle=False)
-    loader_nl = torch.utils.data.DataLoader(data_nl, batch_size=attacker.args.batch_size, shuffle=False, num_workers=10)
     if lab_dir is not None:
         if not os.path.exists(lab_dir):
             os.makedirs(lab_dir)
     if img_dir is not None:
         if not os.path.exists(img_dir):
             os.makedirs(img_dir)
+    if det_dir is not None:
+        if not os.path.exists(det_dir):
+            os.makedirs(det_dir)
     print('preparing the test data')
+
+    data_nl = load_data.InriaDataset(img_ori_dir, lbl_ori_dir, attacker.args['max_lab'], attacker.args.img_size, target_label=target_label, shuffle=False)
+    loader_nl = torch.utils.data.DataLoader(data_nl, batch_size=1, shuffle=False, num_workers=10)
     with torch.no_grad():
         for batch_idx, (img_batch, lab_batch, img_path_batch, lab_path_batch) in tqdm(enumerate(loader_nl), total=len(loader_nl)):
+            img_batch = img_batch.to(attacker.device)
+            det_output = attacker.model(img_batch)
+            all_det_boxes = yolo2_utils.get_region_boxes_general(det_output, attacker.model, 
+                                                    conf_thresh, attacker.kwargs['name'])
+            
             for i in range(img_batch.size(0)):
                 boxes = lab_batch[i].detach().cpu().numpy()
 
                 if lab_dir is not None:
                     filename = os.path.basename(lab_path_batch[i])
-                    save_dir = os.path.join(lab_dir, filename)
-                    np.savetxt(save_dir, boxes, fmt='%f')
+                    save_path = os.path.join(lab_dir, filename)
+                    np.savetxt(save_path, boxes, fmt='%f')
                     
                 if img_dir is not None:
                     filename = os.path.basename(img_path_batch[i]).replace('.jpg', '.png')
-                    save_dir = os.path.join(img_dir, filename)
+                    save_path = os.path.join(img_dir, filename)
                     img = unloader(img_batch[i].detach().cpu())
-                    img.save(save_dir)
+                    img.save(save_path)
+
+                # 保存用于攻击的检测目标
+                det_boxes = all_det_boxes[i]
+                det_boxes = yolo2_utils.nms(det_boxes, nms_thresh)
+                new_det_boxes = det_boxes[:, [6, 0, 1, 2, 3]]
+                new_det_boxes = new_det_boxes[new_det_boxes[:, 0] == target_label]
+                new_det_boxes = new_det_boxes.detach().cpu().numpy()
+                if det_dir is not None:
+                    filename = os.path.basename(lab_path_batch[i])
+                    save_path = os.path.join(det_dir, filename)
+                    np.savetxt(save_path, new_det_boxes, fmt='%f')
+                
     print('preparing done')
 
+def load_txt(lp, target_label):
+
+    label = []
+
+    if os.path.getsize(lp):       #check to see if label file contains data.
+        lb = torch.from_numpy(np.loadtxt(lp)).float()
+        if lb.dim() == 1:
+            lb = lb.unsqueeze(0)
+
+        # add label filter to truth
+        # if target_label is not None:
+        #     truths = label_filter(lb, labels=[target_label])
+        #     num_gts = truths_length(truths)
+        #     truths = truths[:num_gts]
+        #     lb = truths
+        label.append(lb)
+    else:
+        label.append(torch.ones([1, 7]).float())
+
+    return label[0]
+
 def test_model(attacker, loader, target_label, conf_thresh=0.5, nms_thresh=0.4, iou_thresh=0.5, num_of_samples=100,
-                old_fasion=True, do_attack=True):
+                old_fasion=True, do_attack=True, save_dir=None, gt_dir=None):
     """测试模型性能"""
     attacker.model.eval()
     total = 0.0
     proposals = 0.0
     correct = 0.0
     batch_num = len(loader)
+
+    if save_dir is not None:
+        os.makedirs(save_dir, exist_ok=True)
 
     with torch.no_grad():
         positives = []
@@ -86,7 +138,19 @@ def test_model(attacker, loader, target_label, conf_thresh=0.5, nms_thresh=0.4, 
             for i in range(len(all_boxes)):
                 boxes = all_boxes[i]
                 boxes = yolo2_utils.nms(boxes, nms_thresh)
-                truths = target[i].view(-1, 5)
+                if save_dir is not None:
+                    filename = os.path.basename(lab_paths[i])
+                    save_path = os.path.join(save_dir, filename)
+                    np.savetxt(save_path, boxes, fmt='%f')
+
+                if gt_dir is not None:
+                    gt_filename = os.path.basename(lab_paths[i])
+                    
+                    gt_path = os.path.join(gt_dir, gt_filename)
+                    truths = load_txt(gt_path, target_label)
+                else:
+                    truths = target[i].view(-1, 5)
+
                 truths = label_filter(truths, labels=[target_label])
                 num_gts = truths_length(truths)
                 truths = truths[:num_gts, 1:]
@@ -172,6 +236,8 @@ def run_evaluation(method,
     # 创建测试数据加载器
     img_dir_test = './data/test_padded'
     lab_dir_test = f'./data/test_lab_{tcega.kwargs["name"] if tcega.kwargs else "yolov2"}'
+    det_dir_test = f'./data/test_det_{tcega.kwargs["name"] if tcega.kwargs else "yolov2"}'
+
     test_data = load_data.InriaDataset(img_dir_test,
                                         lab_dir_test, 
                                         tcega.kwargs['max_lab'], 
@@ -182,22 +248,41 @@ def run_evaluation(method,
     # 运行测试
     plt.figure(figsize=[15, 10])
 
-    print("Running original test")
+    print("Running detection")
     prec_ori, rec_ori, ap_ori, confs_ori = test_model(tcega, test_loader, target_label, conf_thresh=0.01, 
-                                            old_fasion=tcega.kwargs['old_fasion'] if tcega.kwargs else True, do_attack=False)
-    print("Running attack test")
-    prec_attack, rec_attack, ap_attack, confs_attack = test_model(tcega, test_loader, target_label, conf_thresh=0.01, 
-                                            old_fasion=tcega.kwargs['old_fasion'] if tcega.kwargs else True, do_attack=True)
+            old_fasion=tcega.kwargs['old_fasion'] if tcega.kwargs else True, do_attack=False,
+            save_dir=os.path.join(save_path, 'detect_results'),
+            gt_dir=lab_dir_test)
+    
+    print("Running attack on ground truth")
+    prec_attack_gt, rec_attack_gt, ap_attack_gt, confs_attack_gt = test_model(tcega, test_loader, target_label, conf_thresh=0.01, 
+            old_fasion=tcega.kwargs['old_fasion'] if tcega.kwargs else True, do_attack=True,
+            save_dir=os.path.join(save_path, 'attack_results_on_gt'),
+            gt_dir=lab_dir_test)
+    
+    print("Running attack on detection results")
+    attack_data = load_data.InriaDataset(img_dir_test,
+                                        det_dir_test, 
+                                        tcega.kwargs['max_lab'], 
+                                        tcega.args.img_size, 
+                                        shuffle=False)
+    attack_loader = torch.utils.data.DataLoader(attack_data, tcega.args.batch_size, shuffle=False, num_workers=10)
+    prec_attack_det, rec_attack_det, ap_attack_det, confs_attack_det = test_model(tcega, attack_loader, target_label, conf_thresh=0.01, 
+            old_fasion=tcega.kwargs['old_fasion'] if tcega.kwargs else True, do_attack=True,
+            save_dir=os.path.join(save_path, 'attack_results_ondet'),
+            gt_dir=lab_dir_test)
     
     # 保存结果
     np.savez(save_path, prec_ori=prec_ori, rec_ori=rec_ori, ap_ori=ap_ori, confs_ori=confs_ori,
-            prec_attack=prec_attack, rec_attack=rec_attack, ap_attack=ap_attack, confs_attack=confs_attack,
+            prec_attack_gt=prec_attack_gt, rec_attack_gt=rec_attack_gt, ap_attack_gt=ap_attack_gt, confs_attack_gt=confs_attack_gt,
+            prec_attack_det=prec_attack_det, rec_attack_det=rec_attack_det, ap_attack_det=ap_attack_det, confs_attack_det=confs_attack_det,
             adv_patch=tcega.cloth.detach().cpu().numpy())
-    print(f'Original AP: {ap_ori:.4f}, Attack AP: {ap_attack:.4f}')
+    print(f'Original AP: {ap_ori:.4f}, Attack AP: {ap_attack_gt:.4f}, Attack on Detection AP: {ap_attack_det:.4f}')
     
     # 绘制攻击前后的PR曲线对比
     plt.plot(rec_ori, prec_ori, 'b-', linewidth=2, label=f'Original: AP {ap_ori:.3f}')
-    plt.plot(rec_attack, prec_attack, 'r-', linewidth=2, label=f'Attack: AP {ap_attack:.3f}')
+    plt.plot(rec_attack_gt, prec_attack_gt, 'r-', linewidth=2, label=f'Attack on GT: AP {ap_attack_gt:.3f}')
+    plt.plot(rec_attack_det, prec_attack_det, 'g-', linewidth=2, label=f'Attack on Detection: AP {ap_attack_det:.3f}')
     plt.xlabel('Recall')
     plt.ylabel('Precision')
     plt.title(f'{method} Attack Performance Comparison')
@@ -209,7 +294,7 @@ def run_evaluation(method,
     # 保存对抗补丁图像
     unloader(tcega.cloth[0]).save(save_path + '.png')
     
-    return prec_attack, rec_attack, ap_attack, confs_attack
+    return prec_attack_gt, rec_attack_gt, ap_attack_gt, confs_attack_gt, prec_attack_det, rec_attack_det, ap_attack_det, confs_attack_det
 
 if __name__ == "__main__":
     # test_basic_function()
