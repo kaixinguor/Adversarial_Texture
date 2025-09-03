@@ -19,13 +19,11 @@ from adversarial_attacks.detectors.yolo2 import utils as yolo2_utils
 from adversarial_attacks.physical.tcega.utils import label_filter, truths_length
 from adversarial_attacks.utils.aux_tool import unloader
 
-def prepare_data(attacker, img_ori_dir, target_label):
+def prepare_data(attacker, img_ori_dir, lbl_ori_dir, target_label):
 
-    conf_thresh = 0.5
-    nms_thresh = 0.4
     img_dir = './data/test_padded'
     lab_dir = './data/test_lab_%s' % attacker.kwargs['name']
-    data_nl = load_data.InriaDataset(img_ori_dir, None, attacker.kwargs['max_lab'], attacker.args.img_size, shuffle=False)
+    data_nl = load_data.InriaDataset(img_ori_dir, lbl_ori_dir, 100, attacker.args.img_size, shuffle=False)
     loader_nl = torch.utils.data.DataLoader(data_nl, batch_size=attacker.args.batch_size, shuffle=False, num_workers=10)
     if lab_dir is not None:
         if not os.path.exists(lab_dir):
@@ -35,22 +33,22 @@ def prepare_data(attacker, img_ori_dir, target_label):
             os.makedirs(img_dir)
     print('preparing the test data')
     with torch.no_grad():
-        for batch_idx, (data, labs) in tqdm(enumerate(loader_nl), total=len(loader_nl)):
-            data = data.to(attacker.device)
-            output = attacker.model(data)
-            all_boxes = yolo2_utils.get_region_boxes_general(output, attacker.model, conf_thresh, attacker.kwargs['name'])
-            for i in range(data.size(0)):
-                boxes = all_boxes[i]
-                boxes = yolo2_utils.nms(boxes, nms_thresh)
-                new_boxes = boxes[:, [6, 0, 1, 2, 3]]
+        for batch_idx, (img_batch, lab_batch, img_path_batch, lab_path_batch) in tqdm(enumerate(loader_nl), total=len(loader_nl)):
+            for i in range(img_batch.size(0)):
+                boxes = lab_batch[i]
+                new_boxes = boxes
                 new_boxes = new_boxes[new_boxes[:, 0] == target_label]
                 new_boxes = new_boxes.detach().cpu().numpy()
+
                 if lab_dir is not None:
-                    save_dir = os.path.join(lab_dir, labs[i])
+                    filename = os.path.basename(lab_path_batch[i])
+                    save_dir = os.path.join(lab_dir, filename)
                     np.savetxt(save_dir, new_boxes, fmt='%f')
-                    img = unloader(data[i].detach().cpu())
+                    
                 if img_dir is not None:
-                    save_dir = os.path.join(img_dir, labs[i].replace('.txt', '.png'))
+                    filename = os.path.basename(img_path_batch[i])
+                    save_dir = os.path.join(img_dir, filename)
+                    img = unloader(img_batch[i].detach().cpu())
                     img.save(save_dir)
     print('preparing done')
 
@@ -144,6 +142,7 @@ def test_model(attacker, loader, target_label, conf_thresh=0.5, nms_thresh=0.4, 
     
 def run_evaluation(method, 
                    img_ori_dir, 
+                   lbl_ori_dir, 
                    target_label, 
                    save_dir='./test_results', 
                    do_prepare_data=False):
@@ -160,7 +159,9 @@ def run_evaluation(method,
     save_path = os.path.join(save_dir, f'yolov2_{method}')
 
     if do_prepare_data:
-        prepare_data(tcega, img_ori_dir, target_label)
+        prepare_data(tcega, img_ori_dir, lbl_ori_dir, target_label)
+
+    return
     
     # 创建测试数据加载器
     img_dir_test = './data/test_padded'
@@ -192,19 +193,22 @@ if __name__ == "__main__":
     # test_basic_function()
 
     # img_ori_dir = './data/INRIAPerson/Test/pos'
+    # lbl_ori_dir = './data/train_labels'
     # target_label = 0
     # method = "TCA"
 
-    # img_ori_dir = './dataset/coco2017_person/sub100/images/val2017'
-    # target_label = 0
-    # method = "TCA"
-
-    img_ori_dir = './dataset/coco2017_car/sub100/images/val2017'
-    target_label = 2
+    img_ori_dir = './dataset/coco2017_person/sub100/images/val2017'
+    lbl_ori_dir = './dataset/coco2017_person/sub100/yolo_labels/val2017'
+    target_label = 0
     method = "TCA"
 
+    # img_ori_dir = './dataset/coco2017_car/sub100/images/val2017'
+    # target_label = 2
+    # method = "TCA"
+
     set_random_seed()
-    run_evaluation(method=method, img_ori_dir=img_ori_dir, target_label=target_label,
+    
+    run_evaluation(method=method, img_ori_dir=img_ori_dir, lbl_ori_dir=lbl_ori_dir, target_label=target_label,
                     save_dir=f'./test_results_reproduce/{method}', 
                     do_prepare_data=True)
 

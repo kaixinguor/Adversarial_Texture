@@ -199,7 +199,7 @@ def train_patch():
         print(f"\nEpoch {epoch}/{args.n_epochs}")
         print(f"Learning rate: {optimizer.param_groups[0]['lr']:.6f}")
         
-        for i_batch, (img_batch, lab_batch) in tqdm(enumerate(loader), desc=f'Running epoch {epoch}',
+        for i_batch, (img_batch, lab_batch, img_path_batch, lbl_path_batch) in tqdm(enumerate(loader), desc=f'Running epoch {epoch}',
                                                     total=epoch_length):
             training_state['current_batch'] = i_batch
             

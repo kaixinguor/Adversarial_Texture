@@ -53,7 +53,7 @@ def visualize_yolo_annotations(image_path, annotation_path=None, save_path=None,
                 if line:
                     parts = line.split()
                     if len(parts) == 5:
-                        class_id = int(parts[0])
+                        class_id = int(float(parts[0]))
                         x_center = float(parts[1])
                         y_center = float(parts[2])
                         width = float(parts[3])
@@ -172,6 +172,12 @@ if __name__ == "__main__":
         annotation_path="dataset/coco2017_person/sub100/yolo_labels/val2017/000000005001.txt",
         save_path="test_visualization.png"
     )
+
+    # visualize_yolo_annotations(
+    #     image_path="data/test_padded/000000005001.jpg",
+    #     annotation_path="data/test_lab_yolov2/000000005001.txt",
+    #     save_path="test_visualization.png"
+    # )
     
     # 示例2: 批量可视化
     # visualize_batch_images(

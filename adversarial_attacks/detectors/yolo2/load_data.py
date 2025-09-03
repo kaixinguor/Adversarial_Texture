@@ -465,7 +465,7 @@ class InriaDataset(Dataset):
             label = self.pad_lab(label)
             if len(label) == 1:
                 label = label[0]
-            return image, label
+            return image, label, img_path, lab_path[0]
         else:
             return image, lab_path[0]
 
