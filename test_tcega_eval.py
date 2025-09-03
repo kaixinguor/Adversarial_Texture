@@ -191,11 +191,17 @@ def run_evaluation(method,
 if __name__ == "__main__":
     # test_basic_function()
 
-    img_ori_dir = './data/INRIAPerson/Test/pos'
-    target_label = 0
-    method = "TCA"
+    # img_ori_dir = './data/INRIAPerson/Test/pos'
+    # target_label = 0
+    # method = "TCA"
 
-    # img_ori_dir = './data/coco2017_person/sub100/images/val2017'
+    # img_ori_dir = './dataset/coco2017_person/sub100/images/val2017'
+    # target_label = 0
+    # method = "TCA"
+
+    img_ori_dir = './dataset/coco2017_car/sub100/images/val2017'
+    target_label = 2
+    method = "TCA"
 
     set_random_seed()
     run_evaluation(method=method, img_ori_dir=img_ori_dir, target_label=target_label,
