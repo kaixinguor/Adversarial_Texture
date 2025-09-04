@@ -155,8 +155,10 @@ def run_evaluation(method,
                    save_dir='./test_results', 
                    do_prepare_data=False):
 
-    tcega = TCEGA(method=method)
-    tcega.kwargs['max_lab'] = 100
+    from adversarial_attacks.physical.tcega.cfg import get_cfgs
+    args, kwargs = get_cfgs('yolov2', method)
+    kwargs['max_lab'] = 100
+    tcega = TCEGA(method=method, args=args, kwargs=kwargs)
 
     """运行完整的评估流程"""
     if not hasattr(tcega, 'test_cloth'):
