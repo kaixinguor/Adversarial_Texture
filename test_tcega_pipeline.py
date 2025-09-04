@@ -131,11 +131,12 @@ if __name__ == "__main__":
     tcega = TCEGA(method=method,model_name='yolov2',args=args,kwargs=kwargs)
 
     # 准备gt数据
-    img_padded_dir = './dataset/coco2017_car/sub100_padded/images/val2017'
-    lbl_padded_dir = './dataset/coco2017_car/sub100_padded/labels/val2017'
-    prepare_data(tcega, img_ori_dir, lbl_ori_dir, img_padded_dir, lbl_padded_dir)
+    padded_img_dir = './dataset/coco2017_car/sub100_padded/images/val2017'
+    padded_lbl_dir = './dataset/coco2017_car/sub100_padded/labels/val2017'
+    prepare_data(tcega, img_ori_dir, lbl_ori_dir, padded_img_dir, padded_lbl_dir)
     
     # 进行YOLO推理
+    print("yolo inference on padded data")
     yaml_path = 'ultralytics/cfg/datasets/coco-car100.yaml'
     save_dir = 'runs/coco2017_car/sub100_padded'
     results, det_result_txt_dir = yolo_inference(yaml_path,save_dir)
@@ -144,7 +145,16 @@ if __name__ == "__main__":
     # 生成对抗样本
     attack_target_label = 2
     adv_img_dir = './dataset/coco2017_car/sub100_adv/images/val2017'
-    batch_attack(tcega, attack_target_label, img_padded_dir, lbl_padded_dir, adv_img_dir)
+    batch_attack(tcega, attack_target_label, padded_img_dir, padded_lbl_dir, adv_img_dir)
+    adv_lbl_dir = './dataset/coco2017_car/sub100_adv/labels/val2017'
+    shutil.copytree(padded_lbl_dir, adv_lbl_dir)
+
+    # 进行YOLO推理
+    print("yolo inference on adv data")
+    adv_yaml_path = 'ultralytics/cfg/datasets/coco-car100-adv.yaml'
+    save_dir = 'runs/coco2017_car/sub100_adv'
+    results, det_result_txt_dir = yolo_inference(adv_yaml_path,save_dir)
+    print(results.results_dict)
 
     # 进行TCEGA推理
     # tcega.load_pretrained_attack()
