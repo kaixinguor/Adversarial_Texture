@@ -76,11 +76,20 @@ class TCEGA:
                             #  'TCA': 'training_results/yolov2_TCA_result/patch_epoch400.npy',
                              'EGA': 'pretrained/EGA.pkl',
                              'TCEGA': 'pretrained/TCEGA_z.npy'}
-        
+
         if self.method in ['RCA', 'TCA', 'EGA']:
-            self._load_pretrained_attack(default_load_path[self.method])
+            load_path = self.args.get("load_path", None)
+            if load_path is None:
+                load_path = default_load_path[self.method]
+            self._load_pretrained_attack(load_path)
+
         elif self.method in ['TCEGA']:
-            self._load_pretrained_attack(default_load_path['EGA'], default_load_path['TCEGA'])
+            load_path = self.args.get("load_path", None)
+            load_path_z = self.args.get("load_path_z", None)
+            if load_path is None or load_path_z is None:
+                load_path = default_load_path['EGA']
+                load_path_z = default_load_path['TCEGA']
+            self._load_pretrained_attack(load_path, load_path_z)
         else:
             raise ValueError(f"Unsupported method: {self.method}")
         

@@ -104,7 +104,7 @@ class_names = utils.load_class_names('./data/coco.names')
 # lab_dir_train = './data/train_labels'
 
 img_dir_train = 'dataset/coco2017_car/train1000/images/train2017'
-lab_dir_train = 'dataset/coco2017_car/train1000/yolo_labels/train2017'
+lab_dir_train = 'dataset/coco2017_car/train1000/labels/train2017'
 target_label = 2
 
 train_data = load_data.InriaDataset(img_dir_train, lab_dir_train, kwargs['max_lab'], args.img_size, shuffle=True, target_label=2)

@@ -118,9 +118,8 @@ def batch_attack(attacker, attack_target_label, img_ori_dir, lbl_ori_dir, adv_im
     print('attack done')
 
 if __name__ == "__main__":
-    
-    img_ori_dir = './dataset/coco2017_car/sub100/images/val2017'
-    lbl_ori_dir = './dataset/coco2017_car/sub100/labels/val2017'
+    from adversarial_attacks.utils.aux_tool import set_random_seed
+    set_random_seed()
     
     # 初始化TCEGA模型
     print("初始化TCEGA模型...")
@@ -130,7 +129,9 @@ if __name__ == "__main__":
     kwargs['max_lab'] = 100
     tcega = TCEGA(method=method,model_name='yolov2',args=args,kwargs=kwargs)
 
-    # 准备gt数据
+    # # 准备gt数据
+    img_ori_dir = './dataset/coco2017_car/sub100/images/val2017'
+    lbl_ori_dir = './dataset/coco2017_car/sub100/labels/val2017'
     padded_img_dir = './dataset/coco2017_car/sub100_padded/images/val2017'
     padded_lbl_dir = './dataset/coco2017_car/sub100_padded/labels/val2017'
     prepare_data(tcega, img_ori_dir, lbl_ori_dir, padded_img_dir, padded_lbl_dir)
@@ -147,6 +148,8 @@ if __name__ == "__main__":
     adv_img_dir = './dataset/coco2017_car/sub100_adv/images/val2017'
     batch_attack(tcega, attack_target_label, padded_img_dir, padded_lbl_dir, adv_img_dir)
     adv_lbl_dir = './dataset/coco2017_car/sub100_adv/labels/val2017'
+    if os.path.exists(adv_lbl_dir):
+        shutil.rmtree(adv_lbl_dir)
     shutil.copytree(padded_lbl_dir, adv_lbl_dir)
 
     # 进行YOLO推理
@@ -155,51 +158,3 @@ if __name__ == "__main__":
     save_dir = 'runs/coco2017_car/sub100_adv'
     results, det_result_txt_dir = yolo_inference(adv_yaml_path,save_dir)
     print(results.results_dict)
-
-    # 进行TCEGA推理
-    # tcega.load_pretrained_attack()
-    # tcega.test_cloth(img_padded_dir, det_result_txt_dir)
-
-    # tcega = TCEGA(method='TCA',model_name='yolov2')
-    # target_label = 2
-
-    # img_dir = './dataset/coco2017_car/sub100/images/val2017'
-    # img_names = fnmatch.filter(os.listdir(img_dir), '*.jpg')
-
-    # save_dir_padded = './tesst_results/ori_padded'
-    # save_dir_adv_padded = './tesst_results/adv_padded'
-    # os.makedirs(save_dir_padded, exist_ok=True)
-    # os.makedirs(save_dir_adv_padded, exist_ok=True)
-
-    # for img_name in tqdm(img_names):
-
-    #     if img_name != '000000315187.jpg':
-    #         continue
-        
-    #     test_image_path = os.path.join(img_dir, img_name)
-    #     test_image = Image.open(test_image_path).convert('RGB')
-
-    #     preprocessed_image = tcega.preprocess_image(test_image)
-    #     preprocessed_image.save(os.path.join(save_dir_padded, img_name))
-
-    #     original_results = tcega.detect(preprocessed_image)
-    #     print(f"   ✓ 原始图片检测完成，检测到 {len(original_results['bboxes'])} 个目标")
-
-
-    #     adversarial_image = tcega.generate_adversarial_example(test_image, target_label)
-    #     adversarial_image.save(os.path.join(save_dir_adv_padded, img_name))
-
-    #     adversarial_results = tcega.detect(adversarial_image)
-    #     print(f"   ✓ 对抗样本检测完成，检测到 {len(adversarial_results['bboxes'])} 个目标")
-
-    #     create_comparison_visualization(
-    #         test_image, 
-    #         preprocessed_image, 
-    #         adversarial_image, 
-    #         original_results, 
-    #         adversarial_results,
-    #         tcega.class_names
-    #     )
-    
-    
-
