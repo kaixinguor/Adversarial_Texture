@@ -99,7 +99,6 @@ def batch_attack(attacker, attack_target_label, img_ori_dir, lbl_ori_dir, adv_im
     loader_nl = torch.utils.data.DataLoader(data_nl, batch_size=attacker.args.batch_size, shuffle=False, num_workers=10)
     with torch.no_grad():
         for batch_idx, (data, target, img_path_batch, lab_path_batch) in tqdm(enumerate(loader_nl), total=len(loader_nl)):
-            print
             data = data.to(attacker.device)
             target = target.to(attacker.device)
 
@@ -173,5 +172,5 @@ if __name__ == "__main__":
     from adversarial_attacks.utils.aux_tool import set_random_seed
     set_random_seed()
     
-    method = "TCEGA"
+    method = "RCA"
     run_tcega_eval_pipeline(method, do_prepare_data=False)

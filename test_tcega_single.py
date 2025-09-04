@@ -23,7 +23,7 @@ def test_single_image_inference():
     print("初始化TCEGA模型...")
     
     # 初始化TCEGA模型
-    tcega = TCEGA(method='TCEGA',model_name='yolov2')
+    tcega = TCEGA(method='RCA',model_name='yolov2')
       
     # 测试图片
     # test_image_path = 'data/INRIAPerson/Test/pos/crop_000001.png'
