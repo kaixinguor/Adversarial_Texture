@@ -156,7 +156,7 @@ def run_evaluation(method,
                    do_prepare_data=False):
 
     tcega = TCEGA(method=method)
-    tcega.args['max_lab'] = 100
+    tcega.kwargs['max_lab'] = 100
 
     """运行完整的评估流程"""
     if not hasattr(tcega, 'test_cloth'):

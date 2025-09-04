@@ -47,7 +47,7 @@ def prepare_data(attacker, img_ori_dir, lbl_ori_dir, target_label):
             os.makedirs(det_dir)
     print('preparing the test data')
 
-    data_nl = load_data.InriaDataset(img_ori_dir, lbl_ori_dir, attacker.args['max_lab'], attacker.args.img_size, target_label=target_label, shuffle=False)
+    data_nl = load_data.InriaDataset(img_ori_dir, lbl_ori_dir, attacker.kwargs['max_lab'], attacker.args.img_size, target_label=target_label, shuffle=False)
     loader_nl = torch.utils.data.DataLoader(data_nl, batch_size=1, shuffle=False, num_workers=10)
     with torch.no_grad():
         for batch_idx, (img_batch, lab_batch, img_path_batch, lab_path_batch) in tqdm(enumerate(loader_nl), total=len(loader_nl)):
@@ -217,7 +217,7 @@ def run_evaluation(method,
                    do_prepare_data=False):
     from adversarial_attacks.physical.tcega.cfg import get_cfgs
     args, kwargs = get_cfgs('yolov2', method)
-    args['max_lab'] = 100
+    kwargs['max_lab'] = 100
     tcega = TCEGA(method=method, args=args, kwargs=kwargs)
 
     """运行完整的评估流程"""
@@ -311,7 +311,7 @@ if __name__ == "__main__":
     # save_dir = f'./test_results/{method}_person100'
 
     img_ori_dir = './dataset/coco2017_car/sub100/images/val2017'
-    lbl_ori_dir = './dataset/coco2017_car/sub100/yolo_labels/val2017'
+    lbl_ori_dir = './dataset/coco2017_car/sub100/labels/val2017'
     target_label = 2
     method = "TCA"
     save_dir = f'./test_results/{method}_car100'

@@ -235,7 +235,12 @@ class TCEGA:
             output = self.model(input_tensor)
             # [xs/w, ys/h, ws/w, hs/h, det_confs, cls_max_confs, cls_max_ids]
             boxes7 = self._postprocess_detection_output(output, conf_thresh=self.conf_thresh, nms_thresh=self.nms_thresh)
-        
+
+        # print(boxes7.shape)
+        boxes7 = boxes7[boxes7[:, 6] == target_label]
+        if boxes7.shape[0]==0:
+            return image
+
         if self.adv_patch is None:
             self.adv_patch = self.generate_adv_patch()
 
