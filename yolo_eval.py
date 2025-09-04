@@ -20,11 +20,12 @@ def yolo_inference(save_dir = "runs/detect/val_yolo"):
         name=''
     )
 
-    det_resulttxt_dir = os.path.join(save_dir, "val/labels")
+    det_result_txt_dir = os.path.join(results.save_dir, "labels")
 
-    return results, det_resulttxt_dir
+    return results, det_result_txt_dir
 
 if __name__ == "__main__":
     results, det_resulttxt_dir = yolo_inference()
     print(results)
     print(det_resulttxt_dir)
+    print(results.save_dir)

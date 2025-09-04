@@ -16,7 +16,7 @@ import shutil
 sys.path.append('.')
 from ultralytics import YOLO
 import os
-
+from pathlib import Path
 import torch
 
 from adversarial_attacks.physical import TCEGA
@@ -82,7 +82,7 @@ def yolo_inference(yaml_path, save_dir = "runs/yolo"):
         name=''
     )
 
-    det_result_txt_dir = os.path.join(save_dir, "val/labels")
+    det_result_txt_dir = os.path.join(results.save_dir, "labels")
 
     return results, det_result_txt_dir
 
@@ -99,6 +99,7 @@ def batch_attack(attacker, attack_target_label, img_ori_dir, lbl_ori_dir, adv_im
     loader_nl = torch.utils.data.DataLoader(data_nl, batch_size=attacker.args.batch_size, shuffle=False, num_workers=10)
     with torch.no_grad():
         for batch_idx, (data, target, img_path_batch, lab_path_batch) in tqdm(enumerate(loader_nl), total=len(loader_nl)):
+            print
             data = data.to(attacker.device)
             target = target.to(attacker.device)
 
@@ -117,36 +118,45 @@ def batch_attack(attacker, attack_target_label, img_ori_dir, lbl_ori_dir, adv_im
                 
     print('attack done')
 
-if __name__ == "__main__":
-    from adversarial_attacks.utils.aux_tool import set_random_seed
-    set_random_seed()
-    
+
+def run_tcega_eval_pipeline(method, do_prepare_data=True):
     # 初始化TCEGA模型
     print("初始化TCEGA模型...")
-    method = "TCA"
     from adversarial_attacks.physical.tcega.cfg import get_cfgs
     args, kwargs = get_cfgs('yolov2', method)
     kwargs['max_lab'] = 100
     tcega = TCEGA(method=method,model_name='yolov2',args=args,kwargs=kwargs)
 
-    # # 准备gt数据
     img_ori_dir = './dataset/coco2017_car/sub100/images/val2017'
     lbl_ori_dir = './dataset/coco2017_car/sub100/labels/val2017'
     padded_img_dir = './dataset/coco2017_car/sub100_padded/images/val2017'
     padded_lbl_dir = './dataset/coco2017_car/sub100_padded/labels/val2017'
-    prepare_data(tcega, img_ori_dir, lbl_ori_dir, padded_img_dir, padded_lbl_dir)
+    yolo_det_save_dir = 'runs/coco2017_car/sub100_padded'
+    if do_prepare_data:
+        # 准备gt数据
+        prepare_data(tcega, img_ori_dir, lbl_ori_dir, padded_img_dir, padded_lbl_dir)
     
-    # 进行YOLO推理
-    print("yolo inference on padded data")
-    yaml_path = 'ultralytics/cfg/datasets/coco-car100.yaml'
-    save_dir = 'runs/coco2017_car/sub100_padded'
-    results, det_result_txt_dir = yolo_inference(yaml_path,save_dir)
-    print(results.results_dict)
+        # 进行YOLO推理
+        print("yolo inference on padded data")
+        yaml_path = 'ultralytics/cfg/datasets/coco-car100.yaml'
+        
+        results, det_result_txt_dir = yolo_inference(yaml_path,yolo_det_save_dir)
+    else:
+        det_result_txt_dir = os.path.join(yolo_det_save_dir, "val/labels")
+
+    # 检查检测文件是否都存在
+    det_names = os.listdir(padded_lbl_dir)
+    for det_name in det_names:
+        det_path = os.path.join(det_result_txt_dir, det_name)
+        if not os.path.exists(det_path):
+            print(f"Warning: detect file {det_path} not found, create it")
+            Path(det_path).touch()
+         
 
     # 生成对抗样本
     attack_target_label = 2
     adv_img_dir = './dataset/coco2017_car/sub100_adv/images/val2017'
-    batch_attack(tcega, attack_target_label, padded_img_dir, padded_lbl_dir, adv_img_dir)
+    batch_attack(tcega, attack_target_label, padded_img_dir, det_result_txt_dir, adv_img_dir)
     adv_lbl_dir = './dataset/coco2017_car/sub100_adv/labels/val2017'
     if os.path.exists(adv_lbl_dir):
         shutil.rmtree(adv_lbl_dir)
@@ -158,3 +168,10 @@ if __name__ == "__main__":
     save_dir = 'runs/coco2017_car/sub100_adv'
     results, det_result_txt_dir = yolo_inference(adv_yaml_path,save_dir)
     print(results.results_dict)
+
+if __name__ == "__main__":
+    from adversarial_attacks.utils.aux_tool import set_random_seed
+    set_random_seed()
+    
+    method = "TCEGA"
+    run_tcega_eval_pipeline(method, do_prepare_data=False)
