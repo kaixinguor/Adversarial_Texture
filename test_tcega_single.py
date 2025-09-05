@@ -33,6 +33,7 @@ def test_single_image_inference(method, test_image_path, target_label, save_dir=
     # 预处理check
     preprocessed_image = tcega.preprocess_image(test_image)
     preprocessed_image.save("preprocessed_image.png")
+    print("preprocessed_image.size: ", preprocessed_image.size)
     
     # 1. 原始图片检测
     print("\n1. 原始图片检测...")
@@ -55,6 +56,7 @@ def test_single_image_inference(method, test_image_path, target_label, save_dir=
     print("\n2. 对抗样本生成和检测...")
     try:
         adversarial_image = tcega.generate_adversarial_example(test_image, target_label)
+        print("adversarial_image.size: ", adversarial_image.size)
         
         # 对对抗样本进行检测
         adversarial_results = tcega.detect(adversarial_image)
@@ -250,17 +252,11 @@ def create_attack_effect_analysis(original_detections, adversarial_detections):
 def main_single():
     method = "TCA"
     # 测试图片
-    # test_image_path = 'data/INRIAPerson/Test/pos/crop_000001.png'
-    # test_image_path = 'dataset/coco2017_person/sub100/images/val2017/000000005001.jpg'
-    # test_image_path = 'dataset/coco2017_person/sub100/images/val2017/000000201072.jpg'
-    # test_image_path = 'dataset/coco2017_person/sub100/images/val2017/000000312489.jpg'
-    test_image_path = 'dataset/coco2017_car/sub100/images/val2017/000000315187.jpg'
+    test_image_path = 'dataset/coco2017_car/sub100/images/val2017/000000008762.jpg'
     target_label = 2
     
-
-
     # 测试单图推理
-    save_dir = f"result_vis_{method}_{target_label}"
+    save_dir = f"result_vis_{method}_{target_label}_single"
     os.makedirs(save_dir, exist_ok=True)
     success1 = test_single_image_inference(method, test_image_path, target_label, save_dir=save_dir)
 
@@ -281,4 +277,6 @@ if __name__ == "__main__":
     print("TCEGA单图推理模式测试")
     print("=" * 50)
 
-    main_batch()
+    # main_batch()
+
+    main_single()

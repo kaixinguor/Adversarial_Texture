@@ -247,7 +247,7 @@ class TCEGA:
         # print(boxes7.shape)
         boxes7 = boxes7[boxes7[:, 6] == target_label]
         if boxes7.shape[0]==0:
-            return image
+            return preprocessed_image
 
         if self.adv_patch is None:
             self.adv_patch = self.generate_adv_patch()
