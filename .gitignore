@@ -9,5 +9,6 @@ data/test_lab_yolov2/
 data/test_padded/
 
 
-results*
+data
+*results*
 dataset/*

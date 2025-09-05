@@ -73,7 +73,6 @@ class TCEGA:
         # 加载预训练的对抗攻击模型
         default_load_path = {'RCA': 'pretrained/RCA2.npy',
                              'TCA': 'pretrained/TCA.npy',
-                            #  'TCA': 'training_results/yolov2_TCA_result/patch_epoch400.npy',
                              'EGA': 'pretrained/EGA.pkl',
                              'TCEGA': 'pretrained/TCEGA_z.npy'}
 
