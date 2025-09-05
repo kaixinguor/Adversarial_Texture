@@ -78,6 +78,10 @@ def val_dets(gt_path, det_path, target_label, iou_thresh=0.5):
 
 def calc_asr(gt_dir, det_dir, attack_dir, target_label):
     # 获取所有文件
+    print("calc asr: ")
+    print(f"gt dir: {gt_dir}")
+    print(f"det dir: {det_dir}")
+    print(f"attack dir: {attack_dir}")
     gt_files = set(os.listdir(gt_dir)) if os.path.exists(gt_dir) else set()
     det_files = set(os.listdir(det_dir)) if os.path.exists(det_dir) else set()
     attack_files = set(os.listdir(attack_dir)) if os.path.exists(attack_dir) else set()
@@ -97,7 +101,6 @@ def calc_asr(gt_dir, det_dir, attack_dir, target_label):
     det_success = 0
     attack_success = 0
     for file_idx, filename in tqdm(enumerate(common_files)):
-        print(f"val {filename}")
         gt_file = os.path.join(gt_dir, filename)
         det_file = os.path.join(det_dir, filename)
         attack_file = os.path.join(attack_dir, filename)
@@ -121,7 +124,7 @@ def main():
     det_dir = 'runs/coco2017_car/sub100_padded/val/labels'
     attack_dir = 'runs/coco2017_car/sub100_adv/val/labels'
     target_label = 2  # car类别
-
+    calc_asr(gt_dir, det_dir, attack_dir, target_label)
 
 
 if __name__ == "__main__":

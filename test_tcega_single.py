@@ -6,6 +6,7 @@
 import sys
 from PIL import Image
 import numpy as np
+import os
 import matplotlib.pyplot as plt
 from torchvision import transforms
 unloader = transforms.ToPILImage()
@@ -17,21 +18,13 @@ from adversarial_attacks.utils.vis_tools import set_chinese_font
 
 set_chinese_font()
 
-def test_single_image_inference():
+def test_single_image_inference(method, test_image_path, target_label, save_dir=None):
     """测试单图推理模式"""
     
     print("初始化TCEGA模型...")
     
     # 初始化TCEGA模型
-    tcega = TCEGA(method='RCA',model_name='yolov2')
-      
-    # 测试图片
-    # test_image_path = 'data/INRIAPerson/Test/pos/crop_000001.png'
-    # test_image_path = 'dataset/coco2017_person/sub100/images/val2017/000000005001.jpg'
-    # test_image_path = 'dataset/coco2017_person/sub100/images/val2017/000000201072.jpg'
-    # test_image_path = 'dataset/coco2017_person/sub100/images/val2017/000000312489.jpg'
-    test_image_path = 'dataset/coco2017_car/sub100/images/val2017/000000315187.jpg'
-    target_label = 2
+    tcega = TCEGA(method=method,model_name='yolov2')
     
     # 加载测试图片
     test_image = Image.open(test_image_path).convert('RGB')
@@ -85,6 +78,7 @@ def test_single_image_inference():
     
     # 3. 生成对比可视化
     print("\n3. 生成对比可视化...")
+    img_name = os.path.basename(test_image_path)
     try:
         create_comparison_visualization(
             test_image, 
@@ -92,7 +86,8 @@ def test_single_image_inference():
             adversarial_image, 
             original_results, 
             adversarial_results,
-            tcega.class_names
+            tcega.class_names,
+            save_path=os.path.join(save_dir,img_name)
         )
         print("   ✓ 对比可视化已保存")
     except Exception as e:
@@ -103,32 +98,32 @@ def test_single_image_inference():
     return True
 
 def create_comparison_visualization(original_image, processed_image, adversarial_image, 
-                                  original_detections, adversarial_detections, class_names):
+                                  original_detections, adversarial_detections, class_names, save_path=None):
     """创建对比可视化"""
     
     # 创建大图
     fig = plt.figure(figsize=(20, 15))
     
     # 1. 原始图片
-    plt.subplot(3, 3, 1)
+    plt.subplot(2, 3, 1)
     plt.imshow(original_image)
     plt.title('原始输入图片', fontsize=14, fontweight='bold')
     plt.axis('off')
     
     # 2. 预处理后的图片
-    plt.subplot(3, 3, 2)
+    plt.subplot(2, 3, 2)
     plt.imshow(processed_image)
     plt.title('预处理后图片', fontsize=14, fontweight='bold')
     plt.axis('off')
     
     # 3. 对抗样本
-    plt.subplot(3, 3, 3)
+    plt.subplot(2, 3, 3)
     plt.imshow(adversarial_image)
     plt.title('对抗样本', fontsize=14, fontweight='bold')
     plt.axis('off')
     
     # 4. 原始图片检测结果
-    plt.subplot(3, 3, 4)
+    plt.subplot(2, 3, 4)
     orig_img_with_boxes = np.array(processed_image)
     if len(original_detections['bboxes']) > 0:
         bboxes = original_detections['bboxes']
@@ -163,7 +158,7 @@ def create_comparison_visualization(original_image, processed_image, adversarial
     plt.axis('off')
     
     # 5. 对抗样本检测结果
-    plt.subplot(3, 3, 5)
+    plt.subplot(2, 3, 5)
     adv_img_with_boxes = np.array(adversarial_image)
     if len(adversarial_detections['bboxes']) > 0:
         bboxes = adversarial_detections['bboxes']
@@ -197,77 +192,18 @@ def create_comparison_visualization(original_image, processed_image, adversarial
     plt.title(f'对抗样本检测结果 ({len(adversarial_detections["bboxes"])} 个目标)', fontsize=14, fontweight='bold')
     plt.axis('off')
     
-    # 6. 检测结果对比统计
-    plt.subplot(3, 3, 6)
-    create_detection_comparison_chart(original_detections, adversarial_detections)
-    
-    # 7. 置信度分布对比
-    plt.subplot(3, 3, 7)
-    create_confidence_comparison(original_detections, adversarial_detections)
-    
     # 8. 攻击效果分析
-    plt.subplot(3, 3, 8)
+    plt.subplot(2, 3, 6)
     create_attack_effect_analysis(original_detections, adversarial_detections)
     
-    # 9. 保存图片
-    plt.subplot(3, 3, 9)
-    plt.text(0.5, 0.5, '检测结果对比\n\n原始图片: 绿色框\n对抗样本: 红色框\n\n攻击效果:\n- 目标数量变化\n- 置信度变化\n- 检测准确性', 
-             ha='center', va='center', fontsize=12, fontweight='bold',
-             bbox=dict(boxstyle="round,pad=0.5", facecolor='lightblue', alpha=0.8))
-    plt.axis('off')
     
     plt.tight_layout()
-    plt.savefig('test_detection_comparison.png', dpi=300, bbox_inches='tight')
-    plt.show()
+    if save_path is not None:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"可视化结果保存到：{save_path}")
+    else:
+        plt.show()
 
-def create_detection_comparison_chart(original_detections, adversarial_detections):
-    """创建检测结果对比图表"""
-    categories = ['检测目标数', '平均置信度', '最高置信度']
-    
-    # 计算统计数据
-    orig_count = len(original_detections['bboxes'])
-    adv_count = len(adversarial_detections['bboxes'])
-    
-    orig_scores = original_detections['scores'].flatten() if len(original_detections['scores']) > 0 else [0]
-    adv_scores = adversarial_detections['scores'].flatten() if len(adversarial_detections['scores']) > 0 else [0]
-    
-    orig_avg_conf = np.mean(orig_scores)
-    adv_avg_conf = np.mean(adv_scores)
-    
-    orig_max_conf = np.max(orig_scores)
-    adv_max_conf = np.max(adv_scores)
-    
-    original_values = [orig_count, orig_avg_conf, orig_max_conf]
-    adversarial_values = [adv_count, adv_avg_conf, adv_max_conf]
-    
-    x = np.arange(len(categories))
-    width = 0.35
-    
-    plt.bar(x - width/2, original_values, width, label='原始图片', color='green', alpha=0.7)
-    plt.bar(x + width/2, adversarial_values, width, label='对抗样本', color='red', alpha=0.7)
-    
-    plt.xlabel('检测指标')
-    plt.ylabel('数值')
-    plt.title('检测结果对比')
-    plt.xticks(x, categories)
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-
-def create_confidence_comparison(original_detections, adversarial_detections):
-    """创建置信度分布对比"""
-    orig_scores = original_detections['scores'].flatten() if len(original_detections['scores']) > 0 else []
-    adv_scores = adversarial_detections['scores'].flatten() if len(adversarial_detections['scores']) > 0 else []
-    
-    if len(orig_scores) > 0:
-        plt.hist(orig_scores, bins=10, alpha=0.7, label='原始图片', color='green', density=True)
-    if len(adv_scores) > 0:
-        plt.hist(adv_scores, bins=10, alpha=0.7, label='对抗样本', color='red', density=True)
-    
-    plt.xlabel('置信度')
-    plt.ylabel('密度')
-    plt.title('置信度分布对比')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
 
 def create_attack_effect_analysis(original_detections, adversarial_detections):
     """创建攻击效果分析"""
@@ -313,16 +249,17 @@ if __name__ == "__main__":
     print("=" * 50)
     print("TCEGA单图推理模式测试")
     print("=" * 50)
+
+    method = "TCA"
+    # 测试图片
+    # test_image_path = 'data/INRIAPerson/Test/pos/crop_000001.png'
+    # test_image_path = 'dataset/coco2017_person/sub100/images/val2017/000000005001.jpg'
+    # test_image_path = 'dataset/coco2017_person/sub100/images/val2017/000000201072.jpg'
+    # test_image_path = 'dataset/coco2017_person/sub100/images/val2017/000000312489.jpg'
+    test_image_path = 'dataset/coco2017_car/sub100/images/val2017/000000315187.jpg'
+    target_label = 2
     
     # 测试单图推理
-    success1 = test_single_image_inference()
-    
-    if success1:
-        print("\n" + "=" * 50)
-        print("✓ 所有测试完成！")
-        print("✓ 检测结果对比图已保存为: test_detection_comparison.png")
-        print("=" * 50)
-    else:
-        print("\n" + "=" * 50)
-        print("✗ 测试过程中出现错误")
-        print("=" * 50)
+    save_dir = f"result_vis_{method}_{target_label}"
+    os.makedirs(save_dir, exist_ok=True)
+    success1 = test_single_image_inference(method, test_image_path, target_label, save_dir=save_dir)
