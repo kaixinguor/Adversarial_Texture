@@ -12,6 +12,7 @@ from torchvision import transforms
 unloader = transforms.ToPILImage()
 # 添加当前目录到Python路径
 sys.path.append('.')
+from tqdm import tqdm
 
 from adversarial_attacks.physical import TCEGA
 from adversarial_attacks.utils.vis_tools import set_chinese_font
@@ -245,11 +246,8 @@ def create_attack_effect_analysis(original_detections, adversarial_detections):
              bbox=dict(boxstyle="round,pad=0.5", facecolor='lightyellow', alpha=0.8))
     plt.axis('off')
 
-if __name__ == "__main__":
-    print("=" * 50)
-    print("TCEGA单图推理模式测试")
-    print("=" * 50)
 
+def main_single():
     method = "TCA"
     # 测试图片
     # test_image_path = 'data/INRIAPerson/Test/pos/crop_000001.png'
@@ -259,7 +257,28 @@ if __name__ == "__main__":
     test_image_path = 'dataset/coco2017_car/sub100/images/val2017/000000315187.jpg'
     target_label = 2
     
+
+
     # 测试单图推理
     save_dir = f"result_vis_{method}_{target_label}"
     os.makedirs(save_dir, exist_ok=True)
     success1 = test_single_image_inference(method, test_image_path, target_label, save_dir=save_dir)
+
+def main_batch():
+    target_label = 0
+    method = "TCA"
+    save_dir = f"result_vis_{method}_{target_label}"
+    os.makedirs(save_dir, exist_ok=True)
+
+    img_dir = 'dataset/coco2017_car/sub100/images/val2017'
+    img_names = os.listdir(img_dir)
+    for img_idx, img_name in enumerate(tqdm(img_names)):
+        img_path = os.path.join(img_dir, img_name)
+        success1 = test_single_image_inference(method, img_path, target_label, save_dir=save_dir)
+
+if __name__ == "__main__":
+    print("=" * 50)
+    print("TCEGA单图推理模式测试")
+    print("=" * 50)
+
+    main_batch()
