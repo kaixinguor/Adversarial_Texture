@@ -19,84 +19,35 @@ from adversarial_attacks.utils.vis_tools import set_chinese_font
 
 set_chinese_font()
 
-def test_single_image_inference(method, test_image_path, target_label, save_dir=None):
+def test_single_image_inference(tcega, test_image_path, target_label, save_dir=None):
     """测试单图推理模式"""
-    
-    print("初始化TCEGA模型...")
-    
-    # 初始化TCEGA模型
-    tcega = TCEGA(method=method,model_name='yolov2')
-    
     # 加载测试图片
     test_image = Image.open(test_image_path).convert('RGB')
   
     # 预处理check
     preprocessed_image = tcega.preprocess_image(test_image)
-    preprocessed_image.save("preprocessed_image.png")
-    print("preprocessed_image.size: ", preprocessed_image.size)
-    
-    # 1. 原始图片检测
-    print("\n1. 原始图片检测...")
-    original_results = tcega.detect(test_image)
-    print(f"   ✓ 原始图片检测完成，检测到 {len(original_results['bboxes'])} 个目标")
 
-    # 打印检测结果详情
-    if len(original_results['bboxes']) > 0:
-        print("   检测结果详情:")
-        for i, (bbox, score, label) in enumerate(zip(original_results['bboxes'], 
-                                                        original_results['scores'], 
-                                                        original_results['labels'])):
-            print(f"   目标 {i+1}: 置信度={score[0]:.3f}, 类别={int(label[0])}, "
-                    f"边界框=({bbox[0]:.1f}, {bbox[1]:.1f}, {bbox[2]:.1f}, {bbox[3]:.1f})")
-    
-    # from adversarial_attacks.detectors.yolo2.utils import plot_boxes_cv2
-    # plot_boxes_cv2(np.array(preprocessed_image), debug_target, savename='original_results.png')
+    # 1. 原始图片检测
+    original_results = tcega.detect(test_image)
 
     # 2. 对抗样本生成和检测
-    print("\n2. 对抗样本生成和检测...")
-    try:
-        adversarial_image = tcega.generate_adversarial_example(test_image, target_label)
-        print("adversarial_image.size: ", adversarial_image.size)
-        
-        # 对对抗样本进行检测
-        adversarial_results = tcega.detect(adversarial_image)
-        print(f"   ✓ 对抗样本检测完成，检测到 {len(adversarial_results['bboxes'])} 个目标")
-        
-        # 打印对抗样本检测结果详情
-        if len(adversarial_results['bboxes']) > 0:
-            print("   对抗样本检测结果详情:")
-            for i, (bbox, score, label) in enumerate(zip(adversarial_results['bboxes'], 
-                                                        adversarial_results['scores'], 
-                                                        adversarial_results['labels'])):
-                print(f"   目标 {i+1}: 置信度={score[0]:.3f}, 类别={int(label[0])}, "
-                      f"边界框=({bbox[0]:.1f}, {bbox[1]:.1f}, {bbox[2]:.1f}, {bbox[3]:.1f})")
-        
-        print("   ✓ 对抗样本推理成功")
-        
-    except Exception as e:
-        print(f"   ✗ 对抗样本推理失败: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-    
+    adversarial_image = tcega.generate_adversarial_example(test_image, target_label)
+
+    # 对对抗样本进行检测
+    adversarial_results = tcega.detect(adversarial_image)
+   
     # 3. 生成对比可视化
-    print("\n3. 生成对比可视化...")
     img_name = os.path.basename(test_image_path)
-    try:
-        create_comparison_visualization(
-            test_image, 
-            preprocessed_image, 
-            adversarial_image, 
-            original_results, 
-            adversarial_results,
-            tcega.class_names,
-            save_path=os.path.join(save_dir,img_name)
-        )
-        print("   ✓ 对比可视化已保存")
-    except Exception as e:
-        print(f"   ✗ 可视化生成失败: {e}")
-        import traceback
-        traceback.print_exc()
+
+    create_comparison_visualization(
+        test_image, 
+        preprocessed_image, 
+        adversarial_image, 
+        original_results, 
+        adversarial_results,
+        tcega.class_names,
+        save_path=os.path.join(save_dir,img_name)
+    )
     
     return True
 
@@ -203,7 +154,7 @@ def create_comparison_visualization(original_image, processed_image, adversarial
     plt.tight_layout()
     if save_path is not None:
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        print(f"可视化结果保存到：{save_path}")
+        plt.close(fig)  # 关闭图形窗口以释放内存
     else:
         plt.show()
 
@@ -235,14 +186,14 @@ def create_attack_effect_analysis(original_detections, adversarial_detections):
     if detection_change < 0:
         analysis_text += "✓ 成功减少检测目标"
     elif detection_change > 0:
-        analysis_text += "✗ 检测目标增加"
+        analysis_text += "× 检测目标增加"
     else:
         analysis_text += "○ 目标数量无变化"
     
     if avg_conf_change < 0:
         analysis_text += "\n✓ 成功降低置信度"
     else:
-        analysis_text += "\n✗ 置信度未降低"
+        analysis_text += "\n× 置信度未降低"
     
     plt.text(0.5, 0.5, analysis_text, ha='center', va='center', fontsize=10, fontweight='bold',
              bbox=dict(boxstyle="round,pad=0.5", facecolor='lightyellow', alpha=0.8))
@@ -254,11 +205,15 @@ def main_single():
     # 测试图片
     test_image_path = 'dataset/coco2017_car/sub100/images/val2017/000000008762.jpg'
     target_label = 2
-    
+
     # 测试单图推理
     save_dir = f"result_vis_{method}_{target_label}_single"
     os.makedirs(save_dir, exist_ok=True)
-    success1 = test_single_image_inference(method, test_image_path, target_label, save_dir=save_dir)
+
+    # 初始化TCEGA模型
+    tcega = TCEGA(method=method,model_name='yolov2')
+    
+    success1 = test_single_image_inference(tcega, test_image_path, target_label, save_dir=save_dir)
 
 def main_batch():
     target_label = 0
@@ -266,17 +221,31 @@ def main_batch():
     save_dir = f"result_vis_{method}_{target_label}"
     os.makedirs(save_dir, exist_ok=True)
 
+    # 设置matplotlib参数以避免警告
+    import matplotlib.pyplot as plt
+    plt.rcParams['figure.max_open_warning'] = 50  # 提高警告阈值
+
+    # 初始化TCEGA模型
+    tcega = TCEGA(method=method,model_name='yolov2')
+    
+
     img_dir = 'dataset/coco2017_car/sub100/images/val2017'
     img_names = os.listdir(img_dir)
     for img_idx, img_name in enumerate(tqdm(img_names)):
         img_path = os.path.join(img_dir, img_name)
-        success1 = test_single_image_inference(method, img_path, target_label, save_dir=save_dir)
+        success1 = test_single_image_inference(tcega, img_path, target_label, save_dir=save_dir)
+        
+        # 每处理10张图片后清理内存
+        if (img_idx + 1) % 10 == 0:
+            plt.close('all')  # 关闭所有图形窗口
+            import gc
+            gc.collect()  # 强制垃圾回收
 
 if __name__ == "__main__":
     print("=" * 50)
     print("TCEGA单图推理模式测试")
     print("=" * 50)
 
-    # main_batch()
+    main_batch()
 
-    main_single()
+    # main_single()
