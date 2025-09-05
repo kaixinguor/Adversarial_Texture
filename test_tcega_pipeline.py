@@ -4,12 +4,9 @@
 """
 import os
 import sys
-from PIL import Image
 import numpy as np
-import matplotlib.pyplot as plt
 from torchvision import transforms
 unloader = transforms.ToPILImage()
-import fnmatch
 from tqdm import tqdm
 import shutil
 # 添加当前目录到Python路径
@@ -21,11 +18,11 @@ import torch
 
 from adversarial_attacks.physical import TCEGA
 from adversarial_attacks.utils.vis_tools import set_chinese_font
-from test_tcega_single import create_comparison_visualization
 from adversarial_attacks.physical.tcega.utils import label_filter, truths_length
 from adversarial_attacks.detectors.yolo2 import load_data
 from adversarial_attacks.detectors.yolo2 import utils as yolo2_utils
 set_chinese_font()
+from metrics import calc_asr
 
 def prepare_data(attacker, img_ori_dir, lbl_ori_dir, img_padded_dir, lbl_padded_dir):
 
@@ -63,6 +60,36 @@ def prepare_data(attacker, img_ori_dir, lbl_ori_dir, img_padded_dir, lbl_padded_
                 
     print('preparing done')
 
+
+def validate_det_files(yaml_path, det_result_txt_dir):
+    import glob
+    import yaml
+
+    # 如果yaml_path是字符串，加载YAML文件
+    if isinstance(yaml_path, str):
+        with open(yaml_path, 'r') as f:
+            yaml_config = yaml.safe_load(f)
+        val_path = os.path.join(yaml_config['path'], yaml_config['val'])
+    else:
+        val_path = yaml_path['val']
+
+    # 获取所有验证图片的基名（无后缀）
+    img_files = set(Path(im).stem for im in glob.glob(os.path.join(val_path, '*.png')))
+
+    # 获取已生成的检测文件
+    det_files = set(Path(f).stem for f in glob.glob(os.path.join(det_result_txt_dir, '*.txt')))
+
+    if len(img_files) > len(det_files):
+        print(f"{len(img_files)-len(det_files)} missing!")
+    else:
+        print("file number consistent")
+
+    # 为缺失的图片创建空文件
+    for img in img_files - det_files:
+        print(f"create empty file {img}.txt")
+        with open(os.path.join(det_result_txt_dir, f'{img}.txt'), 'w') as f:
+            pass  # 创建空文件
+
 def yolo_inference(yaml_path, save_dir = "runs/yolo"):
     
     # 加载模型
@@ -77,12 +104,13 @@ def yolo_inference(yaml_path, save_dir = "runs/yolo"):
         iou=0.6,
         imgsz=416,
         save_txt=True,  # 保存检测结果为YOLO格式的.txt文件
-        save_conf=False,  # 在txt文件中保存置信度（可选）
+        # save_conf=True,  # 在txt文件中保存置信度（可选）
         project=save_dir,
         name=''
     )
 
     det_result_txt_dir = os.path.join(results.save_dir, "labels")
+    validate_det_files(yaml_path, det_result_txt_dir)
 
     return results, det_result_txt_dir
 
@@ -118,7 +146,7 @@ def batch_attack(attacker, attack_target_label, img_ori_dir, lbl_ori_dir, adv_im
     print('attack done')
 
 
-def run_tcega_eval_pipeline(method, do_prepare_data=True):
+def run_tcega_eval_pipeline(method, attack_target_label, do_prepare_data=True):
     # 初始化TCEGA模型
     print("初始化TCEGA模型...")
     from adversarial_attacks.physical.tcega.cfg import get_cfgs
@@ -139,7 +167,7 @@ def run_tcega_eval_pipeline(method, do_prepare_data=True):
         print("yolo inference on padded data")
         yaml_path = 'ultralytics/cfg/datasets/coco-car100.yaml'
         
-        results, det_result_txt_dir = yolo_inference(yaml_path,yolo_det_save_dir)
+        det_results, det_result_txt_dir = yolo_inference(yaml_path,yolo_det_save_dir)
     else:
         det_result_txt_dir = os.path.join(yolo_det_save_dir, "val/labels")
 
@@ -153,7 +181,6 @@ def run_tcega_eval_pipeline(method, do_prepare_data=True):
          
 
     # 生成对抗样本
-    attack_target_label = 2
     adv_img_dir = './dataset/coco2017_car/sub100_adv/images/val2017'
     batch_attack(tcega, attack_target_label, padded_img_dir, det_result_txt_dir, adv_img_dir)
     adv_lbl_dir = './dataset/coco2017_car/sub100_adv/labels/val2017'
@@ -165,12 +192,17 @@ def run_tcega_eval_pipeline(method, do_prepare_data=True):
     print("yolo inference on adv data")
     adv_yaml_path = 'ultralytics/cfg/datasets/coco-car100-adv.yaml'
     save_dir = 'runs/coco2017_car/sub100_adv'
-    results, det_result_txt_dir = yolo_inference(adv_yaml_path,save_dir)
-    print(results.results_dict)
+    attack_results, attack_result_txt_dir = yolo_inference(adv_yaml_path,save_dir)
+
+    print("det results", det_results.results_dict)
+    print("attack results", attack_results.results_dict)
+
+    # 计算asr
+    asr = calc_asr(padded_lbl_dir, det_result_txt_dir, attack_result_txt_dir, attack_target_label)
 
 if __name__ == "__main__":
     from adversarial_attacks.utils.aux_tool import set_random_seed
     set_random_seed()
     
-    method = "RCA"
-    run_tcega_eval_pipeline(method, do_prepare_data=False)
+    method = "TCEGA"
+    run_tcega_eval_pipeline(method, attack_target_label=2, do_prepare_data=True)

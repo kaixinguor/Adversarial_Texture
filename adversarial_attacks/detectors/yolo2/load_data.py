@@ -452,6 +452,8 @@ class InriaDataset(Dataset):
                         num_gts = truths_length(truths)
                         truths = truths[:num_gts]
                         lb = truths
+                    # if lb.size(1) == 6: # remove confidence
+                    #     lb = lb[:,:5]
                     label.append(lb)
                 else:
                     label.append(torch.ones([1, 5]).float())
