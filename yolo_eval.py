@@ -10,9 +10,9 @@ def yolo_inference(save_dir = "runs/detect/val_yolo"):
     
     results = model.val(
         data='ultralytics/cfg/datasets/coco-car100.yaml',
-        batch=16,
+        batch=1,
         conf=0.3,
-        iou=0.6,
+        iou=0.5,
         imgsz=416,
         save_txt=True,  # 保存检测结果为YOLO格式的.txt文件
         save_conf=True,  # 在txt文件中保存置信度（可选）
@@ -26,6 +26,6 @@ def yolo_inference(save_dir = "runs/detect/val_yolo"):
 
 if __name__ == "__main__":
     results, det_resulttxt_dir = yolo_inference()
-    print(results)
+    # print(results)
     print(det_resulttxt_dir)
     print(results.save_dir)
