@@ -257,7 +257,9 @@ class PatchTransformer(nn.Module):
         # cls_mask = cls_mask.expand(-1, -1, -1, -1, adv_batch.size(4))
         # # msk_batch = torch.cuda.FloatTensor(cls_mask.size()).fill_(1) - cls_mask
         # msk_batch = adv_patch.new(cls_mask.size()).fill_(1) + cls_mask  # (B, L, 3, 324, 324)
-        msk_batch = adv_patch.new(adv_batch.shape).fill_(1).logical_and((lab_batch[:, :, 0] == target_label).view(B, L, 1, 1, 1))
+        msk_batch = adv_patch.new(adv_batch.shape).fill_(1)
+        if target_label is not None:
+            msk_batch = msk_batch.logical_and((lab_batch[:, :, 0] == target_label).view(B, L, 1, 1, 1))
 
 
         # Pad patch and mask to image dimensions

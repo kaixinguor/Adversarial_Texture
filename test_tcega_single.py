@@ -29,6 +29,7 @@ def test_single_image_inference(tcega, test_image_path, target_label, save_dir=N
 
     # 1. 原始图片检测
     original_results = tcega.detect(test_image)
+    print("debug: original_results", original_results)
 
     # 2. 对抗样本生成和检测
     adversarial_image = tcega.generate_adversarial_example(test_image, target_label)
@@ -203,7 +204,7 @@ def create_attack_effect_analysis(original_detections, adversarial_detections):
 def main_single():
     method = "TCA"
     # 测试图片
-    test_image_path = 'dataset/coco2017_car/sub100/images/val2017/000000008762.jpg'
+    test_image_path = 'dataset/vehicle_images_5/images/000000000471.jpg'
     target_label = 2
 
     # 测试单图推理
@@ -246,6 +247,6 @@ if __name__ == "__main__":
     print("TCEGA单图推理模式测试")
     print("=" * 50)
 
-    main_batch()
+    # main_batch()
 
-    # main_single()
+    main_single()
